@@ -1,12 +1,11 @@
 /**
  * CÓDIGO GOOGLE APPS SCRIPT (Google Planilhas)
  * 
- * Como instalar no Google Planilhas:
- * 1. Abra sua planilha no Google Drive.
- * 2. Clique no menu "Extensões" > "Apps Script".
- * 3. Substitua todo o conteúdo pelo código abaixo.
- * 4. Clique em "Implantar" (Deploy) > "Gerenciar implantações" > Editar (ícone de lápis) > Nova Versão > Implantar.
- * 5. Garanta que o acesso esteja configurado para "Qualquer pessoa" (Anyone).
+ * Instruções para atualizar sua planilha:
+ * 1. Abra sua planilha no Google Sheets.
+ * 2. Acesse: Extensões > Apps Script.
+ * 3. Substitua TODO o código existente pelo código abaixo.
+ * 4. Clique em "Implantar" > "Gerenciar implantações" > Editar (lápis) > Nova Versão > Implantar.
  */
 
 const SHEET_TABS = {
@@ -45,29 +44,25 @@ function doGet(e) {
 
     for (const [abaKey, tabName] of Object.entries(SHEET_TABS)) {
       let sheet = ss.getSheetByName(tabName);
-      if (!sheet) {
-        sheet = ss.insertSheet(tabName);
-        sheet.appendRow(HEADERS);
-        formatHeaderRow(sheet);
-      }
+      if (!sheet) continue;
 
       const data = sheet.getDataRange().getValues();
       if (data.length <= 1) continue;
 
+      // Normaliza cabeçalhos da linha 1
       const headers = data[0].map(h => String(h || '').trim().toLowerCase());
 
       for (let r = 1; r < data.length; r++) {
         const row = data[r];
         if (!row || row.length === 0) continue;
-        
-        // Verifica se a linha tem qualquer dado
+
         const hasContent = row.some(cell => String(cell || '').trim() !== '');
         if (!hasContent) continue;
 
-        const getVal = (colNames) => {
-          for (const name of colNames) {
+        const getVal = (possibleNames) => {
+          for (const name of possibleNames) {
             const idx = headers.indexOf(name.toLowerCase());
-            if (idx !== -1 && row[idx] !== undefined && row[idx] !== null) {
+            if (idx !== -1 && row[idx] !== undefined && row[idx] !== null && String(row[idx]).trim() !== '') {
               const val = row[idx];
               if (val instanceof Date) {
                 const day = String(val.getDate()).padStart(2, '0');
@@ -81,38 +76,56 @@ function doGet(e) {
           return '';
         };
 
-        const nome = getVal(['Nome', 'nome', 'Funcionário', 'Funcionario', 'Nome Completo', 'Colaborador']);
-        const cpf = getVal(['CPF', 'cpf']);
+        // Identifica Nome (procura por cabeçalho ou nas primeiras 3 colunas)
+        let nome = getVal(['Nome', 'nome', 'Funcionário', 'Funcionario', 'Nome Completo', 'Colaborador']);
+        if (!nome) {
+          // Se coluna 0 não for ID numérico/chave, pode ser nome
+          if (row[0] && !String(row[0]).toLowerCase().startsWith('emp_') && !/^\d{3}\.\d{3}/.test(String(row[0]))) {
+            nome = String(row[0]).trim();
+          } else if (row[1] && !/^\d{3}\.\d{3}/.test(String(row[1]))) {
+            nome = String(row[1]).trim();
+          }
+        }
+
+        // Identifica CPF
+        let cpf = getVal(['CPF', 'cpf', 'Documento']);
+        if (!cpf) {
+          for (let i = 0; i < Math.min(row.length, 5); i++) {
+            const cell = String(row[i] || '').trim();
+            if (/\d{3}\.?\d{3}\.?\d{3}-?\d{2}/.test(cell)) {
+              cpf = cell;
+              break;
+            }
+          }
+        }
+
+        // Se não tem nem nome nem CPF, pula
+        if (!nome && !cpf) continue;
+
         const id = getVal(['ID', 'id']) || `emp_${abaKey}_${r}`;
+        const chavePix = getVal(['Chave PIX', 'Chave Pix', 'chave pix', 'pix', 'chave_pix']);
+        const tipoChavePix = getVal(['Tipo Chave PIX', 'Tipo Chave Pix', 'tipo pix', 'tipo_chave_pix']);
+        const cargo = getVal(['Cargo', 'cargo', 'Cargo / Função', 'Função', 'funcao', 'Funcao']);
 
-        // Se nem o nome nem o CPF foram encontrados por cabeçalho, usa índice de fallback da planilha
-        const finalNome = nome || (row[1] ? String(row[1]).trim() : '');
-        const finalCpf = cpf || (row[2] ? String(row[2]).trim() : '');
-
-        if (!finalNome && !finalCpf) continue;
-
-        const chavePix = getVal(['Chave PIX', 'Chave Pix', 'pix', 'chave_pix']) || (row[9] ? String(row[9]).trim() : '');
-        const rawTipo = getVal(['Tipo Chave PIX', 'Tipo Chave Pix', 'Tipo PIX', 'tipo_chave_pix']) || (row[10] ? String(row[10]).trim() : '');
-        
         allEmployees.push({
           id: id,
-          nome: finalNome,
-          cpf: finalCpf,
-          endereco: getVal(['Endereço', 'Endereco', 'endereco', 'Endereço Completo']) || (row[3] ? String(row[3]).trim() : ''),
-          cep: getVal(['CEP', 'cep']) || (row[4] ? String(row[4]).trim() : ''),
-          dataNascimento: getVal(['Data de Nascimento', 'dataNascimento', 'nascimento', 'Data Nascimento']) || (row[5] ? String(row[5]).trim() : ''),
-          dataAdmissao: getVal(['Data de Admissão', 'dataAdmissao', 'admissao', 'Data Admissão']) || (row[6] ? String(row[6]).trim() : ''),
-          cargo: getVal(['Cargo', 'cargo', 'Cargo / Função', 'Função', 'funcao', 'Funcao']) || (row[7] ? String(row[7]).trim() : ''),
-          email: getVal(['E-mail', 'Email', 'email', 'E-Mail']) || (row[8] ? String(row[8]).trim() : ''),
+          nome: nome || 'Sem Nome',
+          cpf: cpf || '',
+          endereco: getVal(['Endereço', 'Endereco', 'endereco', 'Endereço Completo']),
+          cep: getVal(['CEP', 'cep']),
+          dataNascimento: getVal(['Data de Nascimento', 'dataNascimento', 'nascimento', 'Data Nascimento']),
+          dataAdmissao: getVal(['Data de Admissão', 'dataAdmissao', 'admissao', 'Data Admissão']),
+          cargo: cargo,
+          email: getVal(['E-mail', 'Email', 'email', 'E-Mail']),
           chavePix: chavePix,
-          tipoChavePix: rawTipo,
-          contatoEmergencia: getVal(['Contato de Emergência', 'contatoEmergencia', 'contato', 'Contato']) || (row[11] ? String(row[11]).trim() : ''),
-          parentescoEmergencia: getVal(['Parentesco', 'parentescoEmergencia']) || (row[12] ? String(row[12]).trim() : ''),
-          telefoneContatoEmergencia: getVal(['Telefone Contato Emergência', 'telefoneContatoEmergencia', 'telefone emergencia', 'Telefone Emergência']) || (row[13] ? String(row[13]).trim() : ''),
+          tipoChavePix: tipoChavePix,
+          contatoEmergencia: getVal(['Contato de Emergência', 'contatoEmergencia', 'contato', 'Contato']),
+          parentescoEmergencia: getVal(['Parentesco', 'parentescoEmergencia']),
+          telefoneContatoEmergencia: getVal(['Telefone Contato Emergência', 'telefoneContatoEmergencia', 'telefone emergencia', 'Telefone Emergência']),
           aba: abaKey,
-          observacoes: getVal(['Observações', 'Observacoes', 'observacoes']) || (row[14] ? String(row[14]).trim() : ''),
-          dataDesligamento: getVal(['Data de Desligamento', 'dataDesligamento', 'desligamento']) || (row[15] ? String(row[15]).trim() : ''),
-          motivoInativacao: getVal(['Motivo Inativação', 'motivoInativacao', 'motivo']) || (row[16] ? String(row[16]).trim() : ''),
+          observacoes: getVal(['Observações', 'Observacoes', 'observacoes']),
+          dataDesligamento: getVal(['Data de Desligamento', 'dataDesligamento', 'desligamento']),
+          motivoInativacao: getVal(['Motivo Inativação', 'motivoInativacao', 'motivo']),
           createdAt: getVal(['Criado em', 'createdAt']) || new Date().toISOString(),
           updatedAt: getVal(['Atualizado em', 'updatedAt']) || new Date().toISOString()
         });
@@ -135,7 +148,6 @@ function doPost(e) {
     if (body.action === 'sync_all' && Array.isArray(body.employees)) {
       const ss = SpreadsheetApp.getActiveSpreadsheet();
 
-      // Agrupar por aba
       const grouped = {
         '710_711': [],
         'parkshopping': [],
