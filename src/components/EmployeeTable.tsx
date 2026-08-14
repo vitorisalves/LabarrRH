@@ -17,7 +17,7 @@ import {
   Check,
 } from 'lucide-react';
 import { Employee, TabType } from '../types';
-import { formatDateBR } from '../utils/formatters';
+import { formatDateBR, calculateProbationPeriod } from '../utils/formatters';
 
 interface EmployeeTableProps {
   employees: Employee[];
@@ -131,7 +131,31 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = ({
 
                 {/* Admissão & Nascimento */}
                 <td className="py-4 px-5">
-                  <div className="space-y-1">
+                  <div className="space-y-1.5">
+                    {/* Badge de Experiência / Teste de 90 dias */}
+                    {(() => {
+                      const probation = calculateProbationPeriod(emp.dataAdmissao);
+                      if (!probation) return null;
+
+                      if (probation.status === 'active' || probation.status === 'last_day') {
+                        const isWarning = probation.daysRemaining <= 15;
+                        return (
+                          <div
+                            className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-semibold border ${
+                              isWarning
+                                ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 animate-pulse'
+                                : 'bg-sky-500/15 text-sky-300 border-sky-500/30'
+                            }`}
+                            title={`Término dos 90 dias em: ${probation.endDateBR}`}
+                          >
+                            <Clock className="w-3 h-3 shrink-0" />
+                            <span>{probation.label}</span>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
+
                     <div className="flex items-center gap-2 text-slate-200 font-semibold text-sm">
                       <Calendar className="w-4 h-4 text-indigo-400 shrink-0" />
                       <span>Adm: {formatDateBR(emp.dataAdmissao)}</span>

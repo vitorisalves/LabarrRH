@@ -14,9 +14,10 @@ import {
   ArrowRightLeft,
   Edit2,
   Trash2,
+  Clock,
 } from 'lucide-react';
 import { Employee } from '../types';
-import { formatDateBR } from '../utils/formatters';
+import { formatDateBR, calculateProbationPeriod } from '../utils/formatters';
 
 interface EmployeeDetailsModalProps {
   isOpen: boolean;
@@ -138,12 +139,38 @@ export const EmployeeDetailsModal: React.FC<EmployeeDetailsModalProps> = ({
             </div>
 
             <div className="p-4 bg-white/5 rounded-xl border border-white/10 backdrop-blur-md">
-              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                <Briefcase className="w-3.5 h-3.5 text-indigo-400" /> Data de Admissão
-              </span>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <Briefcase className="w-3.5 h-3.5 text-indigo-400" /> Data de Admissão
+                </span>
+                {(() => {
+                  const probation = calculateProbationPeriod(employee.dataAdmissao);
+                  if (!probation) return null;
+                  if (probation.status === 'active' || probation.status === 'last_day') {
+                    return (
+                      <span className="text-[11px] font-semibold text-amber-300 bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 rounded-md flex items-center gap-1">
+                        <Clock className="w-3 h-3 text-amber-400" />
+                        {probation.label}
+                      </span>
+                    );
+                  }
+                  return null;
+                })()}
+              </div>
               <p className="text-sm font-semibold text-white mt-1.5">
                 {formatDateBR(employee.dataAdmissao)}
               </p>
+              {(() => {
+                const probation = calculateProbationPeriod(employee.dataAdmissao);
+                if (probation && (probation.status === 'active' || probation.status === 'last_day')) {
+                  return (
+                    <p className="text-xs text-slate-400 mt-1 font-medium">
+                      Término do período de teste: <span className="text-slate-200 font-semibold">{probation.endDateBR}</span>
+                    </p>
+                  );
+                }
+                return null;
+              })()}
             </div>
 
             <div className="p-4 bg-white/5 rounded-xl border border-white/10 backdrop-blur-md">
