@@ -54,16 +54,20 @@ function doGet(e) {
       const data = sheet.getDataRange().getValues();
       if (data.length <= 1) continue;
 
-      const headers = data[0].map(h => String(h).trim().toLowerCase());
+      const headers = data[0].map(h => String(h || '').trim().toLowerCase());
 
       for (let r = 1; r < data.length; r++) {
         const row = data[r];
-        if (!row[0] && !row[1]) continue; // linha vazia
+        if (!row || row.length === 0) continue;
+        
+        // Verifica se a linha tem qualquer dado
+        const hasContent = row.some(cell => String(cell || '').trim() !== '');
+        if (!hasContent) continue;
 
         const getVal = (colNames) => {
           for (const name of colNames) {
             const idx = headers.indexOf(name.toLowerCase());
-            if (idx !== -1 && row[idx] !== undefined) {
+            if (idx !== -1 && row[idx] !== undefined && row[idx] !== null) {
               const val = row[idx];
               if (val instanceof Date) {
                 const day = String(val.getDate()).padStart(2, '0');
@@ -71,34 +75,44 @@ function doGet(e) {
                 const year = val.getFullYear();
                 return `${day}/${month}/${year}`;
               }
-              return String(val);
+              return String(val).trim();
             }
           }
           return '';
         };
 
-        const chavePix = getVal(['Chave PIX', 'Chave Pix', 'pix', 'chave_pix']);
-        const rawTipo = getVal(['Tipo Chave PIX', 'Tipo Chave Pix', 'Tipo PIX', 'tipo_chave_pix']);
+        const nome = getVal(['Nome', 'nome', 'Funcionário', 'Funcionario', 'Nome Completo', 'Colaborador']);
+        const cpf = getVal(['CPF', 'cpf']);
+        const id = getVal(['ID', 'id']) || `emp_${abaKey}_${r}`;
+
+        // Se nem o nome nem o CPF foram encontrados por cabeçalho, usa índice de fallback da planilha
+        const finalNome = nome || (row[1] ? String(row[1]).trim() : '');
+        const finalCpf = cpf || (row[2] ? String(row[2]).trim() : '');
+
+        if (!finalNome && !finalCpf) continue;
+
+        const chavePix = getVal(['Chave PIX', 'Chave Pix', 'pix', 'chave_pix']) || (row[9] ? String(row[9]).trim() : '');
+        const rawTipo = getVal(['Tipo Chave PIX', 'Tipo Chave Pix', 'Tipo PIX', 'tipo_chave_pix']) || (row[10] ? String(row[10]).trim() : '');
         
         allEmployees.push({
-          id: getVal(['ID', 'id']) || `emp_${abaKey}_${r}`,
-          nome: getVal(['Nome', 'nome']),
-          cpf: getVal(['CPF', 'cpf']),
-          endereco: getVal(['Endereço', 'Endereco', 'endereco']),
-          cep: getVal(['CEP', 'cep']),
-          dataNascimento: getVal(['Data de Nascimento', 'dataNascimento', 'nascimento']),
-          dataAdmissao: getVal(['Data de Admissão', 'dataAdmissao', 'admissao']),
-          cargo: getVal(['Cargo', 'cargo', 'Cargo / Função', 'Função', 'funcao']),
-          email: getVal(['E-mail', 'Email', 'email']),
+          id: id,
+          nome: finalNome,
+          cpf: finalCpf,
+          endereco: getVal(['Endereço', 'Endereco', 'endereco', 'Endereço Completo']) || (row[3] ? String(row[3]).trim() : ''),
+          cep: getVal(['CEP', 'cep']) || (row[4] ? String(row[4]).trim() : ''),
+          dataNascimento: getVal(['Data de Nascimento', 'dataNascimento', 'nascimento', 'Data Nascimento']) || (row[5] ? String(row[5]).trim() : ''),
+          dataAdmissao: getVal(['Data de Admissão', 'dataAdmissao', 'admissao', 'Data Admissão']) || (row[6] ? String(row[6]).trim() : ''),
+          cargo: getVal(['Cargo', 'cargo', 'Cargo / Função', 'Função', 'funcao', 'Funcao']) || (row[7] ? String(row[7]).trim() : ''),
+          email: getVal(['E-mail', 'Email', 'email', 'E-Mail']) || (row[8] ? String(row[8]).trim() : ''),
           chavePix: chavePix,
           tipoChavePix: rawTipo,
-          contatoEmergencia: getVal(['Contato de Emergência', 'contatoEmergencia', 'contato']),
-          parentescoEmergencia: getVal(['Parentesco', 'parentescoEmergencia']),
-          telefoneContatoEmergencia: getVal(['Telefone Contato Emergência', 'telefoneContatoEmergencia', 'telefone emergencia']),
+          contatoEmergencia: getVal(['Contato de Emergência', 'contatoEmergencia', 'contato', 'Contato']) || (row[11] ? String(row[11]).trim() : ''),
+          parentescoEmergencia: getVal(['Parentesco', 'parentescoEmergencia']) || (row[12] ? String(row[12]).trim() : ''),
+          telefoneContatoEmergencia: getVal(['Telefone Contato Emergência', 'telefoneContatoEmergencia', 'telefone emergencia', 'Telefone Emergência']) || (row[13] ? String(row[13]).trim() : ''),
           aba: abaKey,
-          observacoes: getVal(['Observações', 'Observacoes', 'observacoes']),
-          dataDesligamento: getVal(['Data de Desligamento', 'dataDesligamento', 'desligamento']),
-          motivoInativacao: getVal(['Motivo Inativação', 'motivoInativacao', 'motivo']),
+          observacoes: getVal(['Observações', 'Observacoes', 'observacoes']) || (row[14] ? String(row[14]).trim() : ''),
+          dataDesligamento: getVal(['Data de Desligamento', 'dataDesligamento', 'desligamento']) || (row[15] ? String(row[15]).trim() : ''),
+          motivoInativacao: getVal(['Motivo Inativação', 'motivoInativacao', 'motivo']) || (row[16] ? String(row[16]).trim() : ''),
           createdAt: getVal(['Criado em', 'createdAt']) || new Date().toISOString(),
           updatedAt: getVal(['Atualizado em', 'updatedAt']) || new Date().toISOString()
         });
