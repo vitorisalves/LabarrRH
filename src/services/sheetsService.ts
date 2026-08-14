@@ -1,5 +1,5 @@
 import { Employee } from '../types';
-import { formatDateBR } from '../utils/formatters';
+import { formatDateBR, detectPixType } from '../utils/formatters';
 
 export const APPS_SCRIPT_URL =
   'https://script.google.com/macros/s/AKfycbz0EZ0jPYg9yGPvZfPLgNWnvptl8FbDDatCrbXQ-Fg_g0upXUcefsxAiC7GhpD3kgi3uw/exec';
@@ -19,28 +19,36 @@ export async function fetchEmployeesFromSheets(): Promise<Employee[]> {
 
   const data = await response.json();
   if (Array.isArray(data)) {
-    return data.map((item: Partial<Employee>, index: number) => ({
-      id: item.id || `emp_remote_${index + 1}_${Date.now()}`,
-      nome: item.nome || '',
-      cpf: item.cpf || '',
-      endereco: item.endereco || '',
-      cep: item.cep || '',
-      dataNascimento: item.dataNascimento ? formatDateBR(item.dataNascimento) : '',
-      dataAdmissao: item.dataAdmissao ? formatDateBR(item.dataAdmissao) : '',
-      email: item.email || '',
-      chavePix: item.chavePix || '',
-      tipoChavePix: item.tipoChavePix || 'CPF',
-      contatoEmergencia: item.contatoEmergencia || '',
-      parentescoEmergencia: item.parentescoEmergencia || '',
-      telefoneContatoEmergencia: item.telefoneContatoEmergencia || '',
-      aba: item.aba || '710_711',
-      cargo: item.cargo || '',
-      observacoes: item.observacoes || '',
-      dataDesligamento: item.dataDesligamento ? formatDateBR(item.dataDesligamento) : '',
-      motivoInativacao: item.motivoInativacao || '',
-      createdAt: item.createdAt || new Date().toISOString(),
-      updatedAt: item.updatedAt || new Date().toISOString(),
-    }));
+    return data.map((item: any, index: number) => {
+      const rawChavePix = item.chavePix || item['Chave PIX'] || item['Chave Pix'] || item['chave_pix'] || item.pix || '';
+      const rawTipoPix = item.tipoChavePix || item['Tipo Chave PIX'] || item['Tipo Chave Pix'] || item['Tipo PIX'] || item['tipo_chave_pix'] || '';
+      const detectedTipo = detectPixType(rawChavePix, rawTipoPix);
+
+      const rawCargo = item.cargo || item.Cargo || item.funcao || item.Funcao || item['Função'] || item['Cargo / Função'] || item['Cargo/Função'] || '';
+
+      return {
+        id: item.id || `emp_remote_${index + 1}_${Date.now()}`,
+        nome: item.nome || item.Nome || '',
+        cpf: item.cpf || item.CPF || '',
+        endereco: item.endereco || item.Endereco || item['Endereço'] || '',
+        cep: item.cep || item.CEP || '',
+        dataNascimento: item.dataNascimento || item['Data de Nascimento'] ? formatDateBR(item.dataNascimento || item['Data de Nascimento']) : '',
+        dataAdmissao: item.dataAdmissao || item['Data de Admissão'] ? formatDateBR(item.dataAdmissao || item['Data de Admissão']) : '',
+        email: item.email || item.Email || item['E-mail'] || '',
+        chavePix: rawChavePix,
+        tipoChavePix: detectedTipo,
+        contatoEmergencia: item.contatoEmergencia || item['Contato de Emergência'] || item['Contato Emergência'] || '',
+        parentescoEmergencia: item.parentescoEmergencia || item['Parentesco'] || '',
+        telefoneContatoEmergencia: item.telefoneContatoEmergencia || item['Telefone Emergência'] || item['Telefone Contato Emergência'] || '',
+        aba: item.aba || item.Aba || '710_711',
+        cargo: rawCargo,
+        observacoes: item.observacoes || item.Observacoes || item['Observações'] || '',
+        dataDesligamento: item.dataDesligamento || item['Data de Desligamento'] ? formatDateBR(item.dataDesligamento || item['Data de Desligamento']) : '',
+        motivoInativacao: item.motivoInativacao || item['Motivo Inativação'] || item['Motivo da Inativação'] || '',
+        createdAt: item.createdAt || new Date().toISOString(),
+        updatedAt: item.updatedAt || new Date().toISOString(),
+      };
+    });
   }
 
   return [];
@@ -50,9 +58,11 @@ export async function fetchEmployeesFromSheets(): Promise<Employee[]> {
  * Sincroniza a lista completa de funcionários com as 4 abas do Google Sheets
  */
 export async function syncEmployeesToSheets(employees: Employee[]): Promise<{ status: string; count?: number; message?: string }> {
-  // Formata as datas para padrão brasileiro DD/MM/AAAA antes do envio
+  // Formata as datas para padrão brasileiro DD/MM/AAAA e normaliza chave PIX e Cargo
   const formattedEmployees = employees.map((emp) => ({
     ...emp,
+    cargo: emp.cargo || '',
+    tipoChavePix: emp.tipoChavePix || detectPixType(emp.chavePix),
     dataNascimento: emp.dataNascimento ? formatDateBR(emp.dataNascimento) : '',
     dataAdmissao: emp.dataAdmissao ? formatDateBR(emp.dataAdmissao) : '',
     dataDesligamento: emp.dataDesligamento ? formatDateBR(emp.dataDesligamento) : '',

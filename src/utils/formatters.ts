@@ -84,6 +84,57 @@ export function formatCEP(value: string): string {
   return digits.replace(/(\d{5})(\d)/, '$1-$2');
 }
 
+/**
+ * Detecta inteligentemente o tipo da chave PIX caso venha ausente ou nulo do Google Sheets
+ */
+export function detectPixType(
+  chavePix?: string,
+  providedType?: string
+): 'CPF' | 'Email' | 'Telefone' | 'Aleatória' {
+  if (providedType === 'Email' || providedType === 'Telefone' || providedType === 'Aleatória' || providedType === 'CPF') {
+    return providedType;
+  }
+
+  const clean = String(chavePix || '').trim();
+  if (!clean || clean === '-') {
+    return 'CPF';
+  }
+
+  // Se contiver @ -> Email
+  if (clean.includes('@')) {
+    return 'Email';
+  }
+
+  // Se for formato UUID ou chave aleatória (contém letras e números misturados sem @)
+  const isUuid = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(clean);
+  if (isUuid || (clean.length >= 25 && /[a-zA-Z]/.test(clean) && /\d/.test(clean))) {
+    return 'Aleatória';
+  }
+
+  const digitsOnly = clean.replace(/\D/g, '');
+
+  // Se tiver formato explícito de telefone com parênteses, +55 ou 10 dígitos (DDD + 8 dígitos)
+  if (clean.startsWith('+') || clean.includes('(') || clean.includes(')') || digitsOnly.length === 10) {
+    return 'Telefone';
+  }
+
+  // Se tiver 11 dígitos começando com DDD comum e 9 (celular BR) sem pontuação de CPF
+  if (digitsOnly.length === 11 && !clean.includes('.')) {
+    // Se o terceiro dígito for 9 (DDD + 9XXXXXXXX), é telefone celular
+    if (digitsOnly[2] === '9') {
+      return 'Telefone';
+    }
+  }
+
+  // Se tiver letras -> Aleatória
+  if (/[a-zA-Z]/.test(clean)) {
+    return 'Aleatória';
+  }
+
+  // Padrão CPF
+  return 'CPF';
+}
+
 export interface ProbationPeriodInfo {
   status: 'active' | 'last_day' | 'completed' | 'invalid';
   daysRemaining: number;
