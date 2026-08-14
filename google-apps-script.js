@@ -1,11 +1,8 @@
 /**
  * CÓDIGO GOOGLE APPS SCRIPT (Google Planilhas)
  * 
- * Instruções para atualizar sua planilha:
- * 1. Abra sua planilha no Google Sheets.
- * 2. Acesse: Extensões > Apps Script.
- * 3. Substitua TODO o código existente pelo código abaixo.
- * 4. Clique em "Implantar" > "Gerenciar implantações" > Editar (lápis) > Nova Versão > Implantar.
+ * Este script adiciona um menu diretamente na barra do Google Sheets
+ * e inclui uma função para criar a coluna Cargo automaticamente.
  */
 
 const SHEET_TABS = {
@@ -36,6 +33,62 @@ const HEADERS = [
   'Criado em',
   'Atualizado em'
 ];
+
+/**
+ * Cria o menu personalizado no Google Sheets ao abrir a planilha
+ */
+function onOpen() {
+  const ui = SpreadsheetApp.getUi();
+  ui.createMenu('⚙️ Sistema RH')
+    .addItem('1. Criar/Atualizar Cabeçalhos com Coluna Cargo', 'atualizarEstruturaCabecalhos')
+    .addToUi();
+}
+
+/**
+ * Função direta para forçar a criação dos cabeçalhos em todas as 4 abas
+ * Pode ser executada clicando no menu "⚙️ Sistema RH" > "1. Criar/Atualizar Cabeçalhos com Coluna Cargo"
+ * ou selecionando esta função no editor e clicando em "Executar" (Run).
+ */
+function atualizarEstruturaCabecalhos() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  for (const [abaKey, tabName] of Object.entries(SHEET_TABS)) {
+    let sheet = ss.getSheetByName(tabName);
+    if (!sheet) {
+      sheet = ss.insertSheet(tabName);
+    }
+
+    const currentData = sheet.getDataRange().getValues();
+    
+    // Se a aba estiver vazia ou com apenas cabeçalhos antigos
+    if (currentData.length <= 1) {
+      sheet.clearContents();
+      sheet.appendRow(HEADERS);
+      formatHeaderRow(sheet);
+    } else {
+      // Se já tiver colaboradores, verifica se a coluna Cargo existe
+      const currentHeaders = currentData[0].map(h => String(h || '').trim().toLowerCase());
+      const hasCargo = currentHeaders.includes('cargo') || currentHeaders.includes('cargo / função') || currentHeaders.includes('função');
+      
+      if (!hasCargo) {
+        // Encontra o índice da Data de Admissão para inserir Cargo logo após
+        let insertIndex = currentHeaders.indexOf('data de admissão');
+        if (insertIndex === -1) insertIndex = currentHeaders.indexOf('data admissão');
+        if (insertIndex === -1) insertIndex = 6; // coluna G por padrão
+
+        sheet.insertColumnAfter(insertIndex + 1);
+        sheet.getRange(1, insertIndex + 2).setValue('Cargo');
+        formatHeaderRow(sheet);
+      }
+    }
+  }
+
+  try {
+    SpreadsheetApp.getUi().alert('Estrutura de colunas atualizada com sucesso! A coluna Cargo foi inserida nas 4 abas.');
+  } catch (e) {
+    Logger.log('Atualizado com sucesso.');
+  }
+}
 
 function doGet(e) {
   try {
@@ -76,10 +129,9 @@ function doGet(e) {
           return '';
         };
 
-        // Identifica Nome (procura por cabeçalho ou nas primeiras 3 colunas)
+        // Identifica Nome
         let nome = getVal(['Nome', 'nome', 'Funcionário', 'Funcionario', 'Nome Completo', 'Colaborador']);
         if (!nome) {
-          // Se coluna 0 não for ID numérico/chave, pode ser nome
           if (row[0] && !String(row[0]).toLowerCase().startsWith('emp_') && !/^\d{3}\.\d{3}/.test(String(row[0]))) {
             nome = String(row[0]).trim();
           } else if (row[1] && !/^\d{3}\.\d{3}/.test(String(row[1]))) {
@@ -99,7 +151,6 @@ function doGet(e) {
           }
         }
 
-        // Se não tem nem nome nem CPF, pula
         if (!nome && !cpf) continue;
 
         const id = getVal(['ID', 'id']) || `emp_${abaKey}_${r}`;
