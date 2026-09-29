@@ -8,6 +8,7 @@ import { EmployeeFormModal } from './components/EmployeeFormModal';
 import { EmployeeDetailsModal } from './components/EmployeeDetailsModal';
 import { ConfirmDeleteModal } from './components/ConfirmDeleteModal';
 import { TransferModal } from './components/TransferModal';
+import { ValesView } from './components/ValesView';
 import { fetchEmployeesFromSheets, syncEmployeesToSheets } from './services/sheetsService';
 
 const STORAGE_KEY = 'rh_employees_database_v1';
@@ -26,6 +27,7 @@ export default function App() {
   });
 
   const [activeTab, setActiveTab] = useState<TabType>('710_711');
+  const [view, setView] = useState<'funcionarios' | 'vales'>('funcionarios');
   const [searchTerm, setSearchTerm] = useState('');
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'synced' | 'error'>('idle');
   const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
@@ -264,49 +266,66 @@ export default function App() {
         syncStatus={syncStatus}
         lastSyncTime={lastSyncTime}
         onManualSync={handleManualSync}
+        view={view}
+        onChangeView={setView}
       />
 
       {/* Main Content Area */}
       <main className="flex-1 w-full max-w-[98%] 2xl:max-w-[1800px] mx-auto px-2 sm:px-4 lg:px-6 py-6 relative z-10">
-        {/* Navigation Tabs (710/711, Parkshopping, Freela, Inativo) */}
-        <TabNav
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-          counts={counts}
-        />
+        {view === 'funcionarios' ? (
+          <>
+            {/* Navigation Tabs (710/711, Parkshopping, Freela, Inativo) */}
+            <TabNav
+              activeTab={activeTab}
+              onTabChange={setActiveTab}
+              counts={counts}
+            />
 
-        {/* Tab Content Table Container */}
-        <div className="bg-white/5 backdrop-blur-2xl p-4 sm:p-6 border border-t-0 border-white/10 rounded-b-2xl shadow-2xl space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-1">
-            <div className="text-sm text-slate-300 font-medium flex items-center gap-2">
-              <span>Exibindo</span>
-              <span className="font-bold text-white px-2.5 py-0.5 rounded-md bg-white/10 border border-white/10 text-sm">
-                {filteredEmployees.length}
-              </span>
-              <span>colaborador(es) na aba</span>
-              <span className="font-bold text-indigo-300 text-sm">
-                {activeTab === '710_711'
-                  ? '710/711'
-                  : activeTab === 'parkshopping'
-                  ? 'Parkshopping'
-                  : activeTab === 'freela'
-                  ? 'Freela'
-                  : 'Inativo'}
-              </span>
-              {searchTerm && <span className="text-slate-400"> (filtro: "{searchTerm}")</span>}
+            {/* Tab Content Table Container */}
+            <div className="bg-white/5 backdrop-blur-2xl p-4 sm:p-6 border border-t-0 border-white/10 rounded-b-2xl shadow-2xl space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-1">
+                <div className="text-sm text-slate-300 font-medium flex items-center gap-2">
+                  <span>Exibindo</span>
+                  <span className="font-bold text-white px-2.5 py-0.5 rounded-md bg-white/10 border border-white/10 text-sm">
+                    {filteredEmployees.length}
+                  </span>
+                  <span>colaborador(es) na aba</span>
+                  <span className="font-bold text-indigo-300 text-sm">
+                    {activeTab === '710_711'
+                      ? '710/711'
+                      : activeTab === 'parkshopping'
+                      ? 'Parkshopping'
+                      : activeTab === 'freela'
+                      ? 'Freela'
+                      : 'Inativo'}
+                  </span>
+                  {searchTerm && <span className="text-slate-400"> (filtro: "{searchTerm}")</span>}
+                </div>
+              </div>
+
+              <EmployeeTable
+                employees={filteredEmployees}
+                activeTab={activeTab}
+                onViewDetails={openDetailsModal}
+                onEdit={openEditModal}
+                onTransfer={openTransferModal}
+                onDelete={openDeleteModal}
+                onNewEmployee={openNewEmployeeModal}
+              />
             </div>
-          </div>
-
-          <EmployeeTable
-            employees={filteredEmployees}
-            activeTab={activeTab}
-            onViewDetails={openDetailsModal}
-            onEdit={openEditModal}
-            onTransfer={openTransferModal}
-            onDelete={openDeleteModal}
-            onNewEmployee={openNewEmployeeModal}
+          </>
+        ) : (
+          <ValesView
+            employees={employees}
+            onUpdateEmployee={(id, valorValeDia) => {
+              const updatedList = employees.map((emp) =>
+                emp.id === id ? { ...emp, valorValeDia, updatedAt: new Date().toISOString() } : emp
+              );
+              setEmployees(updatedList);
+              triggerSheetsSync(updatedList);
+            }}
           />
-        </div>
+        )}
       </main>
 
 

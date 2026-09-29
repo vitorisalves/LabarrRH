@@ -1,5 +1,5 @@
 import React from 'react';
-import { Users, UserPlus, Search, Download, FileSpreadsheet, RefreshCw, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Users, UserPlus, Search, Download, FileSpreadsheet, RefreshCw, CheckCircle2, AlertCircle, Wallet } from 'lucide-react';
 import { Employee, TabType } from '../types';
 
 interface HeaderProps {
@@ -12,6 +12,8 @@ interface HeaderProps {
   syncStatus: 'idle' | 'syncing' | 'synced' | 'error';
   lastSyncTime: string | null;
   onManualSync: () => void;
+  view: 'funcionarios' | 'vales';
+  onChangeView: (view: 'funcionarios' | 'vales') => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -24,6 +26,8 @@ export const Header: React.FC<HeaderProps> = ({
   syncStatus,
   lastSyncTime,
   onManualSync,
+  view,
+  onChangeView,
 }) => {
   const getTabTitle = () => {
     switch (activeTab) {
@@ -146,6 +150,17 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Action Tools */}
           <div className="flex flex-wrap items-center gap-3">
+            {/* View toggle: Funcionarios / Vales */}
+            <button
+              onClick={() => onChangeView(view === 'funcionarios' ? 'vales' : 'funcionarios')}
+              className="flex items-center gap-2 px-3.5 py-2.5 text-xs font-semibold text-indigo-200 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 rounded-xl backdrop-blur-md transition-all cursor-pointer shadow-xs"
+            >
+              <Wallet className="w-4 h-4 text-indigo-300" />
+              <span className="hidden sm:inline">
+                {view === 'funcionarios' ? 'Ver Vales' : 'Ver Funcionários'}
+              </span>
+            </button>
+
             {/* Search Input */}
             <div className="relative min-w-[260px] flex-1 sm:flex-initial">
               <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
