@@ -35,6 +35,23 @@ const HEADERS = [
   'Atualizado em'
 ];
 
+const VALE_SHEET_TABS = {
+  '710_711': 'Vale 710_711',
+  'parkshopping': 'Vale Parkshopping'
+};
+
+const VALE_HEADERS = [
+  'FuncionarioId',
+  'MesAno',
+  'DiasVale',
+  'ValorDia',
+  'ValorTotal',
+  'FolgasManuais',
+  'FeriasInicio',
+  'FeriasFim',
+  'AtualizadoEm'
+];
+
 /**
  * Cria o menu personalizado no Google Sheets ao abrir a planilha
  */
@@ -92,6 +109,53 @@ function atualizarEstruturaCabecalhos() {
 }
 
 function doGet(e) {
+  const action = e.parameter && e.parameter.action;
+  if (action === 'get_vales') {
+    return handleGetVales(e);
+  }
+  return handleGetEmployees();
+}
+
+function handleGetVales(e) {
+  try {
+    const unidade = e.parameter.unidade;
+    const tabName = VALE_SHEET_TABS[unidade];
+    if (!tabName) {
+      return ContentService.createTextOutput(JSON.stringify([])).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName(tabName);
+    if (!sheet) {
+      return ContentService.createTextOutput(JSON.stringify([])).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    const data = sheet.getDataRange().getValues();
+    if (data.length <= 1) {
+      return ContentService.createTextOutput(JSON.stringify([])).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    const rows = data.slice(1).map((row) => ({
+      funcionarioId: String(row[0] || ''),
+      mesAno: String(row[1] || ''),
+      diasVale: Number(row[2] || 0),
+      valorDia: Number(row[3] || 0),
+      valorTotal: Number(row[4] || 0),
+      folgasManuais: String(row[5] || '')
+        .split(',')
+        .filter((v) => v.trim() !== '')
+        .map(Number),
+      feriasInicio: String(row[6] || ''),
+      feriasFim: String(row[7] || ''),
+    }));
+
+    return ContentService.createTextOutput(JSON.stringify(rows)).setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({ error: err.toString() })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+function handleGetEmployees() {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const allEmployees = [];
@@ -199,6 +263,10 @@ function doPost(e) {
     const rawData = e.postData.contents;
     const body = JSON.parse(rawData);
 
+    if (body.action === 'sync_vales') {
+      return handleSyncVales(body);
+    }
+
     if (body.action === 'sync_all' && Array.isArray(body.employees)) {
       const ss = SpreadsheetApp.getActiveSpreadsheet();
 
@@ -265,6 +333,58 @@ function doPost(e) {
   } catch (err) {
     return ContentService.createTextOutput(JSON.stringify({ status: 'error', error: err.toString() }))
       .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+function handleSyncVales(body) {
+  try {
+    const unidade = body.unidade;
+    const mesAno = body.mesAno;
+    const registros = body.registros || [];
+    const tabName = VALE_SHEET_TABS[unidade];
+
+    if (!tabName) {
+      return ContentService.createTextOutput(JSON.stringify({ status: 'ignored' })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let sheet = ss.getSheetByName(tabName);
+    if (!sheet) {
+      sheet = ss.insertSheet(tabName);
+      sheet.appendRow(VALE_HEADERS);
+      formatHeaderRow(sheet);
+    }
+
+    const data = sheet.getDataRange().getValues();
+    const existingRows = data.length > 1 ? data.slice(1) : [];
+
+    const keptRows = existingRows.filter((row) => String(row[1] || '') !== mesAno);
+
+    const now = new Date().toISOString();
+    const newRows = registros.map((r) => [
+      r.funcionarioId || '',
+      mesAno,
+      r.diasVale || 0,
+      r.valorDia || 0,
+      r.valorTotal || 0,
+      (r.folgasManuais || []).join(','),
+      r.feriasInicio || '',
+      r.feriasFim || '',
+      now,
+    ]);
+
+    const allRows = keptRows.concat(newRows);
+
+    sheet.clearContents();
+    sheet.appendRow(VALE_HEADERS);
+    formatHeaderRow(sheet);
+    if (allRows.length > 0) {
+      sheet.getRange(2, 1, allRows.length, VALE_HEADERS.length).setValues(allRows);
+    }
+
+    return ContentService.createTextOutput(JSON.stringify({ status: 'success', count: registros.length })).setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({ status: 'error', error: err.toString() })).setMimeType(ContentService.MimeType.JSON);
   }
 }
 
