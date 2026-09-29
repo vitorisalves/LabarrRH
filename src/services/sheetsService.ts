@@ -60,7 +60,7 @@ export async function fetchEmployeesFromSheets(): Promise<Employee[]> {
     return [];
   } catch (error) {
     console.error('Erro ao buscar dados do Google Sheets:', error);
-    return [];
+    throw error;
   }
 }
 

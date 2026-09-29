@@ -80,10 +80,10 @@ export default function App() {
         if (isMounted) {
           if (remoteEmployees.length > 0) {
             setEmployees(remoteEmployees);
-          } else {
-            // Se a planilha estiver vazia, sincroniza a base inicial para as abas
-            await syncEmployeesToSheets(employees);
           }
+          // Nunca sobrescreve a planilha automaticamente quando ela vem vazia:
+          // isso pode ser um erro de leitura, não uma planilha genuinamente vazia.
+          // Sincronizar dados locais por cima é uma ação explícita do usuário (botão Sincronizar).
           setSyncStatus('synced');
           const now = new Date();
           setLastSyncTime(
@@ -112,8 +112,6 @@ export default function App() {
       const remoteEmployees = await fetchEmployeesFromSheets();
       if (remoteEmployees.length > 0) {
         setEmployees(remoteEmployees);
-      } else {
-        await syncEmployeesToSheets(employees);
       }
       setSyncStatus('synced');
       const now = new Date();
