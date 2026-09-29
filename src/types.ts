@@ -16,6 +16,7 @@ export interface Employee {
   telefoneContatoEmergencia?: string;
   aba: TabType;
   cargo?: string;
+  valorValeDia?: number;
   observacoes?: string;
   dataDesligamento?: string;
   motivoInativacao?: string;

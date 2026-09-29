@@ -21,6 +21,7 @@ const HEADERS = [
   'Data de Nascimento',
   'Data de Admissão',
   'Cargo',
+  'Valor Vale/Dia',
   'E-mail',
   'Chave PIX',
   'Tipo Chave PIX',
@@ -157,6 +158,7 @@ function doGet(e) {
         const chavePix = getVal(['Chave PIX', 'Chave Pix', 'chave pix', 'pix', 'chave_pix']);
         const tipoChavePix = getVal(['Tipo Chave PIX', 'Tipo Chave Pix', 'tipo pix', 'tipo_chave_pix']);
         const cargo = getVal(['Cargo', 'cargo', 'Cargo / Função', 'Função', 'funcao', 'Funcao']);
+        const valorValeDia = getVal(['Valor Vale/Dia', 'valorValeDia', 'Valor Vale Dia']);
 
         allEmployees.push({
           id: id,
@@ -167,6 +169,7 @@ function doGet(e) {
           dataNascimento: getVal(['Data de Nascimento', 'dataNascimento', 'nascimento', 'Data Nascimento']),
           dataAdmissao: getVal(['Data de Admissão', 'dataAdmissao', 'admissao', 'Data Admissão']),
           cargo: cargo,
+          valorValeDia: valorValeDia ? Number(String(valorValeDia).replace(',', '.')) : 0,
           email: getVal(['E-mail', 'Email', 'email', 'E-Mail']),
           chavePix: chavePix,
           tipoChavePix: tipoChavePix,
@@ -234,6 +237,7 @@ function doPost(e) {
           emp.dataNascimento || '',
           emp.dataAdmissao || '',
           emp.cargo || '',
+          emp.valorValeDia || '',
           emp.email || '',
           emp.chavePix || '',
           emp.tipoChavePix || '',
