@@ -126,6 +126,13 @@ function doGet(e) {
   return handleGetEmployees();
 }
 
+function cellToString(value) {
+  // Diferente de `value || ''`: preserva o número 0 (ex: domingo = índice 0 em
+  // DiasSemanaFolga), que `||` trataria incorretamente como vazio.
+  if (value === undefined || value === null) return '';
+  return String(value);
+}
+
 function normalizeMesAno(value) {
   if (value instanceof Date) {
     const year = value.getFullYear();
@@ -163,11 +170,11 @@ function handleGetVales(e) {
       diasVT: Number(row[5] || 0),
       valorVT: Number(row[6] || 0),
       totalVT: Number(row[7] || 0),
-      diasSemanaFolga: String(row[8] || '')
+      diasSemanaFolga: cellToString(row[8])
         .split(',')
         .filter((v) => v.trim() !== '')
         .map(Number),
-      folgasExtras: String(row[9] || '')
+      folgasExtras: cellToString(row[9])
         .split(',')
         .filter((v) => v.trim() !== ''),
       feriasInicio: String(row[10] || ''),
@@ -442,6 +449,7 @@ function handleSyncVales(body) {
       // Força texto puro em MesAno/FeriasInicio/FeriasFim para o Sheets não
       // autoconverter para Data, o que quebraria a comparação de upsert acima.
       sheet.getRange(2, 2, allRows.length, 1).setNumberFormat('@');
+      sheet.getRange(2, 9, allRows.length, 1).setNumberFormat('@');
       sheet.getRange(2, 10, allRows.length, 1).setNumberFormat('@');
       sheet.getRange(2, 11, allRows.length, 1).setNumberFormat('@');
       sheet.getRange(2, 12, allRows.length, 1).setNumberFormat('@');
