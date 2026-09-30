@@ -142,17 +142,23 @@ export const ValeAjusteModal: React.FC<ValeAjusteModalProps> = ({
           </div>
           <div className="grid grid-cols-7 gap-1.5">
             {dias.map((dia) => {
-              const iso = formatISODate(new Date(ano, mes - 1, dia));
+              const dataDoDia = new Date(ano, mes - 1, dia);
+              const iso = formatISODate(dataDoDia);
+              const isFolgaFixa = diasFolga.has(dataDoDia.getDay());
               const isExtra = folgasExtras.has(iso);
               return (
                 <button
                   key={dia}
                   type="button"
+                  disabled={isFolgaFixa}
                   onClick={() => toggleFolgaExtra(dia)}
-                  className={`h-9 rounded-lg text-sm font-medium transition-colors cursor-pointer border ${
-                    isExtra
-                      ? 'bg-sky-500/25 border-sky-400/50 text-sky-200'
-                      : 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10'
+                  title={isFolgaFixa ? 'Já coberto pela folga fixa da semana' : undefined}
+                  className={`h-9 rounded-lg text-sm font-medium transition-colors border ${
+                    isFolgaFixa
+                      ? 'bg-amber-500/15 border-amber-400/30 text-amber-300/70 cursor-not-allowed'
+                      : isExtra
+                      ? 'bg-sky-500/25 border-sky-400/50 text-sky-200 cursor-pointer'
+                      : 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10 cursor-pointer'
                   }`}
                 >
                   {dia}
@@ -161,7 +167,7 @@ export const ValeAjusteModal: React.FC<ValeAjusteModalProps> = ({
             })}
           </div>
           <p className="text-xs text-slate-400 mt-2">
-            Só valem neste mês — some com a folga fixa. Use para dias que mudam semana a semana (ex: escala rotativa da loja).
+            Dias em <span className="text-amber-300/80">âmbar</span> já são folga fixa da semana (marcados sozinhos). Clique nos demais para marcar folgas extras que só valem neste mês — use para dias que mudam semana a semana (ex: escala rotativa da loja).
           </p>
         </div>
 
