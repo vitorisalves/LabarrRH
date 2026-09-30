@@ -111,7 +111,7 @@ export const ValesView: React.FC<ValesViewProps> = ({ employees, onUpdateEmploye
   };
 
   const handleExportCSV = () => {
-    const headers = ['Nome', 'Cargo', 'ChavePix', 'DiasVA', 'ValorVA', 'TotalVA', 'DiasVT', 'ValorVT', 'TotalVT'];
+    const headers = ['Nome', 'Cargo', 'ChavePix', 'DiasVA', 'ValorVA', 'TotalVA', 'DiasVT', 'ValorVT', 'TotalVT', 'TotalGeral'];
     const rows = linhas.map((l) => [
       `"${l.nome.replace(/"/g, '""')}"`,
       `"${(l.cargo || '').replace(/"/g, '""')}"`,
@@ -122,6 +122,7 @@ export const ValesView: React.FC<ValesViewProps> = ({ employees, onUpdateEmploye
       l.diasVT,
       l.valorVT.toFixed(2),
       l.totalVT.toFixed(2),
+      (l.totalVA + l.totalVT).toFixed(2),
     ]);
     const csvContent = [headers.join(';'), ...rows.map((r) => r.join(';'))].join('\n');
     const blob = new Blob(['﻿' + csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -234,6 +235,7 @@ export const ValesView: React.FC<ValesViewProps> = ({ employees, onUpdateEmploye
               <th className="px-4 py-3 text-center">Dias VT</th>
               <th className="px-4 py-3 text-right">Valor VT/dia</th>
               <th className="px-4 py-3 text-right">Total VT</th>
+              <th className="px-4 py-3 text-right">Total Geral</th>
               <th className="px-4 py-3 text-center">Ajustes</th>
             </tr>
           </thead>
@@ -259,6 +261,9 @@ export const ValesView: React.FC<ValesViewProps> = ({ employees, onUpdateEmploye
                     />
                   </td>
                   <td className="px-4 py-3 text-right text-indigo-300 font-semibold">R$ {linha.totalVT.toFixed(2)}</td>
+                  <td className="px-4 py-3 text-right text-emerald-300 font-bold">
+                    R$ {(linha.totalVA + linha.totalVT).toFixed(2)}
+                  </td>
                   <td className="px-4 py-3 text-center">
                     <button
                       onClick={() => setAjusteModalFuncionario(emp)}
@@ -273,7 +278,7 @@ export const ValesView: React.FC<ValesViewProps> = ({ employees, onUpdateEmploye
             })}
             {linhas.length === 0 && (
               <tr>
-                <td colSpan={9} className="px-4 py-8 text-center text-slate-400">
+                <td colSpan={10} className="px-4 py-8 text-center text-slate-400">
                   Nenhum funcionário nesta unidade.
                 </td>
               </tr>
