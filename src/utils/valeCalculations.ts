@@ -71,7 +71,18 @@ export function removerFerias(
   return Math.max(0, janela.totalDias - diasFerias);
 }
 
-function contarDomingos(janela: JanelaAtiva, mesAno: string): number {
+/**
+ * Itera os dias da janela ativa, recortados pelo mês e excluindo o período de férias
+ * (se houver), contando quantos satisfazem o predicado. Usado tanto para contar domingos
+ * quanto folgas por dia da semana, para que férias nunca sejam descontadas duas vezes.
+ */
+function contarDias(
+  janela: JanelaAtiva,
+  mesAno: string,
+  feriasInicio: string | undefined,
+  feriasFim: string | undefined,
+  incluir: (weekday: number) => boolean
+): number {
   const [ano, mes] = mesAno.split('-').map(Number);
   const inicioMes = new Date(ano, mes - 1, 1);
   const fimMes = new Date(ano, mes, 0);
@@ -79,9 +90,13 @@ function contarDomingos(janela: JanelaAtiva, mesAno: string): number {
   const inicio = janela.inicio < inicioMes ? inicioMes : janela.inicio;
   const fim = janela.fim > fimMes ? fimMes : janela.fim;
 
+  const feriasInicioDate = parseISODate(feriasInicio);
+  const feriasFimDate = parseISODate(feriasFim);
+
   let count = 0;
   for (let d = new Date(inicio); d <= fim; d.setDate(d.getDate() + 1)) {
-    if (d.getDay() === 0) count++;
+    if (feriasInicioDate && feriasFimDate && d >= feriasInicioDate && d <= feriasFimDate) continue;
+    if (incluir(d.getDay())) count++;
   }
   return count;
 }
@@ -91,55 +106,83 @@ export function calcularDiasVale(params: {
   janela: JanelaAtiva;
   mesAno: string;
   proporcao: 5 | 6;
-  folgasManuais?: number[];
+  diasSemanaFolga?: number[];
   excluirDomingos?: boolean;
+  feriasInicio?: string;
+  feriasFim?: string;
 }): number {
-  const { diasRestantes, janela, mesAno, proporcao, folgasManuais, excluirDomingos } = params;
+  const { diasRestantes, janela, mesAno, proporcao, diasSemanaFolga, excluirDomingos, feriasInicio, feriasFim } =
+    params;
 
   let dias: number;
-  if (folgasManuais && folgasManuais.length > 0) {
-    dias = diasRestantes - folgasManuais.length;
+  if (diasSemanaFolga && diasSemanaFolga.length > 0) {
+    const folgaSet = new Set(diasSemanaFolga);
+    dias = contarDias(janela, mesAno, feriasInicio, feriasFim, (weekday) => !folgaSet.has(weekday));
   } else {
     dias = Math.round((diasRestantes * proporcao) / 7);
   }
 
   if (excluirDomingos) {
-    dias -= contarDomingos(janela, mesAno);
+    dias -= contarDias(janela, mesAno, feriasInicio, feriasFim, (weekday) => weekday === 0);
   }
 
   return Math.max(0, dias);
 }
 
 export interface ValeAjuste {
-  folgasManuais?: number[];
+  diasSemanaFolga?: number[];
   feriasInicio?: string;
   feriasFim?: string;
 }
 
 export interface ValeResultado {
-  diasVale: number;
-  valorDia: number;
-  valorTotal: number;
+  diasVA: number;
+  valorVA: number;
+  totalVA: number;
+  diasVT: number;
+  valorVT: number;
+  totalVT: number;
 }
 
 export function calcularValeFuncionario(
-  employee: { admissao: string; desligamento?: string; valorValeDia?: number },
+  employee: { admissao: string; desligamento?: string; valorVT?: number },
   unidade: '710_711' | 'parkshopping',
   mesAno: string,
+  valorVA: number,
   ajuste?: ValeAjuste
 ): ValeResultado {
   const janela = getDiasAtivosNoMes(employee.admissao, employee.desligamento, mesAno);
   const diasRestantes = removerFerias(janela, ajuste?.feriasInicio, ajuste?.feriasFim, mesAno);
 
-  const diasVale = calcularDiasVale({
+  const diasVA = calcularDiasVale({
+    diasRestantes,
+    janela,
+    mesAno,
+    proporcao: 5,
+    diasSemanaFolga: ajuste?.diasSemanaFolga,
+    excluirDomingos: false,
+    feriasInicio: ajuste?.feriasInicio,
+    feriasFim: ajuste?.feriasFim,
+  });
+
+  const diasVT = calcularDiasVale({
     diasRestantes,
     janela,
     mesAno,
     proporcao: unidade === '710_711' ? 5 : 6,
-    folgasManuais: ajuste?.folgasManuais,
+    diasSemanaFolga: ajuste?.diasSemanaFolga,
     excluirDomingos: unidade === 'parkshopping',
+    feriasInicio: ajuste?.feriasInicio,
+    feriasFim: ajuste?.feriasFim,
   });
 
-  const valorDia = employee.valorValeDia || 0;
-  return { diasVale, valorDia, valorTotal: diasVale * valorDia };
+  const vt = employee.valorVT || 0;
+  return {
+    diasVA,
+    valorVA,
+    totalVA: diasVA * valorVA,
+    diasVT,
+    valorVT: vt,
+    totalVT: diasVT * vt,
+  };
 }

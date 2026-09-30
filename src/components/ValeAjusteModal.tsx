@@ -1,56 +1,60 @@
 import React, { useState, useEffect } from 'react';
 import { X, CalendarOff, Palmtree } from 'lucide-react';
 
+const DIAS_SEMANA = [
+  { value: 0, label: 'Dom' },
+  { value: 1, label: 'Seg' },
+  { value: 2, label: 'Ter' },
+  { value: 3, label: 'Qua' },
+  { value: 4, label: 'Qui' },
+  { value: 5, label: 'Sex' },
+  { value: 6, label: 'Sáb' },
+];
+
 interface ValeAjusteModalProps {
   isOpen: boolean;
   funcionarioNome: string;
-  mesAno: string; // 'YYYY-MM'
   ajusteAtual?: {
-    folgasManuais?: number[];
+    diasSemanaFolga?: number[];
     feriasInicio?: string;
     feriasFim?: string;
   };
   onClose: () => void;
-  onSave: (ajuste: { folgasManuais: number[]; feriasInicio?: string; feriasFim?: string }) => void;
+  onSave: (ajuste: { diasSemanaFolga: number[]; feriasInicio?: string; feriasFim?: string }) => void;
 }
 
 export const ValeAjusteModal: React.FC<ValeAjusteModalProps> = ({
   isOpen,
   funcionarioNome,
-  mesAno,
   ajusteAtual,
   onClose,
   onSave,
 }) => {
-  const [folgas, setFolgas] = useState<Set<number>>(new Set(ajusteAtual?.folgasManuais || []));
+  const [diasFolga, setDiasFolga] = useState<Set<number>>(new Set(ajusteAtual?.diasSemanaFolga || []));
   const [feriasInicio, setFeriasInicio] = useState(ajusteAtual?.feriasInicio || '');
   const [feriasFim, setFeriasFim] = useState(ajusteAtual?.feriasFim || '');
 
   useEffect(() => {
-    setFolgas(new Set(ajusteAtual?.folgasManuais || []));
+    setDiasFolga(new Set(ajusteAtual?.diasSemanaFolga || []));
     setFeriasInicio(ajusteAtual?.feriasInicio || '');
     setFeriasFim(ajusteAtual?.feriasFim || '');
-  }, [ajusteAtual, mesAno, isOpen]);
+  }, [ajusteAtual, isOpen]);
 
   if (!isOpen) return null;
 
-  const [ano, mes] = mesAno.split('-').map(Number);
-  const diasNoMes = new Date(ano, mes, 0).getDate();
-  const dias = Array.from({ length: diasNoMes }, (_, i) => i + 1);
-
   const toggleDia = (dia: number) => {
-    const next = new Set(folgas);
+    const next = new Set(diasFolga);
     if (next.has(dia)) {
       next.delete(dia);
     } else {
       next.add(dia);
     }
-    setFolgas(next);
+    setDiasFolga(next);
   };
 
   const handleSave = () => {
     onSave({
-      folgasManuais: Array.from(folgas).sort((a: number, b: number) => a - b),
+      diasSemanaFolga: Array.from(diasFolga).sort((a: number, b: number) => a - b),
       feriasInicio: feriasInicio || undefined,
       feriasFim: feriasFim || undefined,
     });
@@ -73,26 +77,26 @@ export const ValeAjusteModal: React.FC<ValeAjusteModalProps> = ({
         <div>
           <div className="flex items-center gap-2 text-sm font-semibold text-indigo-300 mb-2">
             <CalendarOff className="w-4 h-4" />
-            <span>Folgas manuais do mês</span>
+            <span>Dia(s) de folga fixos na semana</span>
           </div>
           <div className="grid grid-cols-7 gap-1.5">
-            {dias.map((dia) => (
+            {DIAS_SEMANA.map(({ value, label }) => (
               <button
-                key={dia}
+                key={value}
                 type="button"
-                onClick={() => toggleDia(dia)}
-                className={`h-9 rounded-lg text-sm font-medium transition-colors cursor-pointer border ${
-                  folgas.has(dia)
+                onClick={() => toggleDia(value)}
+                className={`h-10 rounded-lg text-sm font-medium transition-colors cursor-pointer border ${
+                  diasFolga.has(value)
                     ? 'bg-amber-500/25 border-amber-400/50 text-amber-200'
                     : 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10'
                 }`}
               >
-                {dia}
+                {label}
               </button>
             ))}
           </div>
           <p className="text-xs text-slate-400 mt-2">
-            Marcados: {folgas.size > 0 ? Array.from(folgas).sort((a: number, b: number) => a - b).join(', ') : 'nenhum'}
+            Vale para todos os meses, até ser alterado. Deixe sem marcar para usar o cálculo automático por proporção.
           </p>
         </div>
 
@@ -121,6 +125,9 @@ export const ValeAjusteModal: React.FC<ValeAjusteModalProps> = ({
               />
             </div>
           </div>
+          <p className="text-xs text-slate-400 mt-2">
+            Vale automaticamente em qualquer mês que este período cruzar.
+          </p>
         </div>
 
         <div className="flex justify-end gap-3 pt-2">

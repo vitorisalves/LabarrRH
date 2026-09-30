@@ -315,9 +315,9 @@ export default function App() {
         ) : (
           <ValesView
             employees={employees}
-            onUpdateEmployee={(id, valorValeDia) => {
+            onUpdateEmployee={(id, valorVT) => {
               const updatedList = employees.map((emp) =>
-                emp.id === id ? { ...emp, valorValeDia, updatedAt: new Date().toISOString() } : emp
+                emp.id === id ? { ...emp, valorVT, updatedAt: new Date().toISOString() } : emp
               );
               setEmployees(updatedList);
               triggerSheetsSync(updatedList);

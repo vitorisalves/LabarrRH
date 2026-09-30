@@ -29,7 +29,7 @@ export async function fetchEmployeesFromSheets(): Promise<Employee[]> {
           const detectedTipo = detectPixType(rawChavePix, rawTipoPix);
 
           const rawCargo = item.cargo || item.Cargo || item.funcao || item.Funcao || item['Função'] || item['Cargo / Função'] || item['Cargo/Função'] || '';
-          const rawValorValeDia = item.valorValeDia ?? item['Valor Vale/Dia'] ?? 0;
+          const rawValorVT = item.valorVT ?? item['Valor VT/Dia'] ?? item.valorValeDia ?? item['Valor Vale/Dia'] ?? 0;
 
           return {
             id: item.id || `emp_remote_${index + 1}_${Date.now()}`,
@@ -47,7 +47,7 @@ export async function fetchEmployeesFromSheets(): Promise<Employee[]> {
             telefoneContatoEmergencia: item.telefoneContatoEmergencia || item['Telefone Emergência'] || item['Telefone Contato Emergência'] || '',
             aba: item.aba || item.Aba || '710_711',
             cargo: rawCargo,
-            valorValeDia: typeof rawValorValeDia === 'number' ? rawValorValeDia : Number(rawValorValeDia) || 0,
+            valorVT: typeof rawValorVT === 'number' ? rawValorVT : Number(rawValorVT) || 0,
             observacoes: item.observacoes || item.Observacoes || item['Observações'] || '',
             dataDesligamento: item.dataDesligamento || item['Data de Desligamento'] ? formatDateBR(item.dataDesligamento || item['Data de Desligamento']) : '',
             motivoInativacao: item.motivoInativacao || item['Motivo Inativação'] || item['Motivo da Inativação'] || '',
@@ -72,7 +72,7 @@ export async function syncEmployeesToSheets(employees: Employee[]): Promise<{ st
   const formattedEmployees = employees.map((emp) => ({
     ...emp,
     cargo: emp.cargo || '',
-    valorValeDia: emp.valorValeDia || 0,
+    valorVT: emp.valorVT || 0,
     tipoChavePix: emp.tipoChavePix || detectPixType(emp.chavePix),
     dataNascimento: emp.dataNascimento ? formatDateBR(emp.dataNascimento) : '',
     dataAdmissao: emp.dataAdmissao ? formatDateBR(emp.dataAdmissao) : '',

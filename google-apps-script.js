@@ -21,7 +21,7 @@ const HEADERS = [
   'Data de Nascimento',
   'Data de Admissão',
   'Cargo',
-  'Valor Vale/Dia',
+  'Valor VT/Dia',
   'E-mail',
   'Chave PIX',
   'Tipo Chave PIX',
@@ -43,14 +43,19 @@ const VALE_SHEET_TABS = {
 const VALE_HEADERS = [
   'FuncionarioId',
   'MesAno',
-  'DiasVale',
-  'ValorDia',
-  'ValorTotal',
-  'FolgasManuais',
+  'DiasVA',
+  'ValorVA',
+  'TotalVA',
+  'DiasVT',
+  'ValorVT',
+  'TotalVT',
+  'DiasSemanaFolga',
   'FeriasInicio',
   'FeriasFim',
   'AtualizadoEm'
 ];
+
+const CONFIG_SHEET_NAME = 'Config';
 
 /**
  * Cria o menu personalizado no Google Sheets ao abrir a planilha
@@ -113,6 +118,9 @@ function doGet(e) {
   if (action === 'get_vales') {
     return handleGetVales(e);
   }
+  if (action === 'get_config') {
+    return handleGetConfig();
+  }
   return handleGetEmployees();
 }
 
@@ -138,18 +146,44 @@ function handleGetVales(e) {
     const rows = data.slice(1).map((row) => ({
       funcionarioId: String(row[0] || ''),
       mesAno: String(row[1] || ''),
-      diasVale: Number(row[2] || 0),
-      valorDia: Number(row[3] || 0),
-      valorTotal: Number(row[4] || 0),
-      folgasManuais: String(row[5] || '')
+      diasVA: Number(row[2] || 0),
+      valorVA: Number(row[3] || 0),
+      totalVA: Number(row[4] || 0),
+      diasVT: Number(row[5] || 0),
+      valorVT: Number(row[6] || 0),
+      totalVT: Number(row[7] || 0),
+      diasSemanaFolga: String(row[8] || '')
         .split(',')
         .filter((v) => v.trim() !== '')
         .map(Number),
-      feriasInicio: String(row[6] || ''),
-      feriasFim: String(row[7] || ''),
+      feriasInicio: String(row[9] || ''),
+      feriasFim: String(row[10] || ''),
     }));
 
     return ContentService.createTextOutput(JSON.stringify(rows)).setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({ error: err.toString() })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+function handleGetConfig() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName(CONFIG_SHEET_NAME);
+    if (!sheet) {
+      return ContentService.createTextOutput(JSON.stringify({ valorVA: 0 })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    const data = sheet.getDataRange().getValues();
+    let valorVA = 0;
+    for (let r = 1; r < data.length; r++) {
+      if (String(data[r][0] || '').trim() === 'valorVA') {
+        valorVA = Number(data[r][1]) || 0;
+        break;
+      }
+    }
+
+    return ContentService.createTextOutput(JSON.stringify({ valorVA })).setMimeType(ContentService.MimeType.JSON);
   } catch (err) {
     return ContentService.createTextOutput(JSON.stringify({ error: err.toString() })).setMimeType(ContentService.MimeType.JSON);
   }
@@ -222,7 +256,7 @@ function handleGetEmployees() {
         const chavePix = getVal(['Chave PIX', 'Chave Pix', 'chave pix', 'pix', 'chave_pix']);
         const tipoChavePix = getVal(['Tipo Chave PIX', 'Tipo Chave Pix', 'tipo pix', 'tipo_chave_pix']);
         const cargo = getVal(['Cargo', 'cargo', 'Cargo / Função', 'Função', 'funcao', 'Funcao']);
-        const valorValeDia = getVal(['Valor Vale/Dia', 'valorValeDia', 'Valor Vale Dia']);
+        const valorVT = getVal(['Valor VT/Dia', 'valorVT', 'Valor VT Dia', 'Valor Vale/Dia']);
 
         allEmployees.push({
           id: id,
@@ -233,7 +267,7 @@ function handleGetEmployees() {
           dataNascimento: getVal(['Data de Nascimento', 'dataNascimento', 'nascimento', 'Data Nascimento']),
           dataAdmissao: getVal(['Data de Admissão', 'dataAdmissao', 'admissao', 'Data Admissão']),
           cargo: cargo,
-          valorValeDia: valorValeDia ? Number(String(valorValeDia).replace(',', '.')) : 0,
+          valorVT: valorVT ? Number(String(valorVT).replace(',', '.')) : 0,
           email: getVal(['E-mail', 'Email', 'email', 'E-Mail']),
           chavePix: chavePix,
           tipoChavePix: tipoChavePix,
@@ -265,6 +299,10 @@ function doPost(e) {
 
     if (body.action === 'sync_vales') {
       return handleSyncVales(body);
+    }
+
+    if (body.action === 'save_config') {
+      return handleSaveConfig(body);
     }
 
     if (body.action === 'sync_all' && Array.isArray(body.employees)) {
@@ -305,7 +343,7 @@ function doPost(e) {
           emp.dataNascimento || '',
           emp.dataAdmissao || '',
           emp.cargo || '',
-          emp.valorValeDia || '',
+          emp.valorVT || '',
           emp.email || '',
           emp.chavePix || '',
           emp.tipoChavePix || '',
@@ -364,10 +402,13 @@ function handleSyncVales(body) {
     const newRows = registros.map((r) => [
       r.funcionarioId || '',
       mesAno,
-      r.diasVale || 0,
-      r.valorDia || 0,
-      r.valorTotal || 0,
-      (r.folgasManuais || []).join(','),
+      r.diasVA || 0,
+      r.valorVA || 0,
+      r.totalVA || 0,
+      r.diasVT || 0,
+      r.valorVT || 0,
+      r.totalVT || 0,
+      (r.diasSemanaFolga || []).join(','),
       r.feriasInicio || '',
       r.feriasFim || '',
       now,
@@ -383,6 +424,38 @@ function handleSyncVales(body) {
     }
 
     return ContentService.createTextOutput(JSON.stringify({ status: 'success', count: registros.length })).setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({ status: 'error', error: err.toString() })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+function handleSaveConfig(body) {
+  try {
+    const valorVA = Number(body.valorVA) || 0;
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let sheet = ss.getSheetByName(CONFIG_SHEET_NAME);
+    if (!sheet) {
+      sheet = ss.insertSheet(CONFIG_SHEET_NAME);
+      sheet.appendRow(['Chave', 'Valor']);
+      formatHeaderRow(sheet);
+    }
+
+    const data = sheet.getDataRange().getValues();
+    let rowIndex = -1;
+    for (let r = 1; r < data.length; r++) {
+      if (String(data[r][0] || '').trim() === 'valorVA') {
+        rowIndex = r + 1; // 1-indexed sheet row
+        break;
+      }
+    }
+
+    if (rowIndex === -1) {
+      sheet.appendRow(['valorVA', valorVA]);
+    } else {
+      sheet.getRange(rowIndex, 2).setValue(valorVA);
+    }
+
+    return ContentService.createTextOutput(JSON.stringify({ status: 'success', valorVA })).setMimeType(ContentService.MimeType.JSON);
   } catch (err) {
     return ContentService.createTextOutput(JSON.stringify({ status: 'error', error: err.toString() })).setMimeType(ContentService.MimeType.JSON);
   }

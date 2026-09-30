@@ -1,6 +1,6 @@
 import { AjusteArmazenado, UnidadeVale } from '../types/vale';
 
-const STORAGE_KEY = 'rh_vale_ajustes_v1';
+const STORAGE_KEY = 'rh_vale_ajustes_v2';
 
 function loadAll(): AjusteArmazenado[] {
   try {
@@ -20,21 +20,17 @@ function saveAll(ajustes: AjusteArmazenado[]): void {
   }
 }
 
-function matchKey(a: AjusteArmazenado, funcionarioId: string, unidade: UnidadeVale, mesAno: string): boolean {
-  return a.funcionarioId === funcionarioId && a.unidade === unidade && a.mesAno === mesAno;
+function matchKey(a: AjusteArmazenado, funcionarioId: string, unidade: UnidadeVale): boolean {
+  return a.funcionarioId === funcionarioId && a.unidade === unidade;
 }
 
-export function getAjuste(
-  funcionarioId: string,
-  unidade: UnidadeVale,
-  mesAno: string
-): AjusteArmazenado | undefined {
-  return loadAll().find((a) => matchKey(a, funcionarioId, unidade, mesAno));
+export function getAjuste(funcionarioId: string, unidade: UnidadeVale): AjusteArmazenado | undefined {
+  return loadAll().find((a) => matchKey(a, funcionarioId, unidade));
 }
 
 export function saveAjuste(ajuste: AjusteArmazenado): void {
   const all = loadAll();
-  const idx = all.findIndex((a) => matchKey(a, ajuste.funcionarioId, ajuste.unidade, ajuste.mesAno));
+  const idx = all.findIndex((a) => matchKey(a, ajuste.funcionarioId, ajuste.unidade));
   if (idx >= 0) {
     all[idx] = ajuste;
   } else {
@@ -43,6 +39,6 @@ export function saveAjuste(ajuste: AjusteArmazenado): void {
   saveAll(all);
 }
 
-export function getAllAjustesForMonth(unidade: UnidadeVale, mesAno: string): AjusteArmazenado[] {
-  return loadAll().filter((a) => a.unidade === unidade && a.mesAno === mesAno);
+export function getAllAjustes(unidade: UnidadeVale): AjusteArmazenado[] {
+  return loadAll().filter((a) => a.unidade === unidade);
 }

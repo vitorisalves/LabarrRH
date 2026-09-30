@@ -1,15 +1,15 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Building2, Store, Download, RefreshCw, Settings2 } from 'lucide-react';
 import { Employee } from '../types';
 import { UnidadeVale, ValeCalculado } from '../types/vale';
 import { calcularValeFuncionario } from '../utils/valeCalculations';
-import { getAjuste, saveAjuste, getAllAjustesForMonth } from '../services/valesLocalStore';
-import { syncValesToSheets } from '../services/valesService';
+import { getAjuste, saveAjuste, getAllAjustes } from '../services/valesLocalStore';
+import { syncValesToSheets, fetchValorVAConfig, saveValorVAConfig } from '../services/valesService';
 import { ValeAjusteModal } from './ValeAjusteModal';
 
 interface ValesViewProps {
   employees: Employee[];
-  onUpdateEmployee: (id: string, valorValeDia: number) => void;
+  onUpdateEmployee: (id: string, valorVT: number) => void;
 }
 
 function currentMesAno(): string {
@@ -23,6 +23,15 @@ export const ValesView: React.FC<ValesViewProps> = ({ employees, onUpdateEmploye
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'synced' | 'error'>('idle');
   const [ajusteModalFuncionario, setAjusteModalFuncionario] = useState<Employee | null>(null);
   const [ajusteVersion, setAjusteVersion] = useState(0);
+  const [valorVA, setValorVA] = useState(0);
+  const [valorVAInput, setValorVAInput] = useState('0');
+
+  useEffect(() => {
+    fetchValorVAConfig().then((v) => {
+      setValorVA(v);
+      setValorVAInput(String(v));
+    });
+  }, []);
 
   const funcionariosDaUnidade = useMemo(
     () => employees.filter((e) => e.aba === unidade),
@@ -31,11 +40,12 @@ export const ValesView: React.FC<ValesViewProps> = ({ employees, onUpdateEmploye
 
   const linhas: ValeCalculado[] = useMemo(() => {
     return funcionariosDaUnidade.map((emp) => {
-      const ajuste = getAjuste(emp.id, unidade, mesAno);
+      const ajuste = getAjuste(emp.id, unidade);
       const resultado = calcularValeFuncionario(
-        { admissao: emp.dataAdmissao, desligamento: emp.dataDesligamento, valorValeDia: emp.valorValeDia },
+        { admissao: emp.dataAdmissao, desligamento: emp.dataDesligamento, valorVT: emp.valorVT },
         unidade,
         mesAno,
+        valorVA,
         ajuste
       );
       return {
@@ -43,22 +53,31 @@ export const ValesView: React.FC<ValesViewProps> = ({ employees, onUpdateEmploye
         nome: emp.nome,
         cargo: emp.cargo,
         chavePix: emp.chavePix,
-        diasVale: resultado.diasVale,
-        valorDia: resultado.valorDia,
-        valorTotal: resultado.valorTotal,
+        ...resultado,
       };
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [funcionariosDaUnidade, unidade, mesAno, ajusteVersion]);
+  }, [funcionariosDaUnidade, unidade, mesAno, valorVA, ajusteVersion]);
 
-  const totalGeral = linhas.reduce((sum, l) => sum + l.valorTotal, 0);
+  const totalVA = linhas.reduce((sum, l) => sum + l.totalVA, 0);
+  const totalVT = linhas.reduce((sum, l) => sum + l.totalVT, 0);
+  const totalGeral = totalVA + totalVT;
 
-  const handleSaveAjuste = (ajuste: { folgasManuais: number[]; feriasInicio?: string; feriasFim?: string }) => {
+  const handleSaveValorVA = async () => {
+    const valor = Number(valorVAInput.replace(',', '.')) || 0;
+    setValorVA(valor);
+    try {
+      await saveValorVAConfig(valor);
+    } catch (err) {
+      console.error('Erro ao salvar valor de VA:', err);
+    }
+  };
+
+  const handleSaveAjuste = (ajuste: { diasSemanaFolga: number[]; feriasInicio?: string; feriasFim?: string }) => {
     if (!ajusteModalFuncionario) return;
     saveAjuste({
       funcionarioId: ajusteModalFuncionario.id,
       unidade,
-      mesAno,
       ...ajuste,
     });
     setAjusteVersion((v) => v + 1);
@@ -67,15 +86,18 @@ export const ValesView: React.FC<ValesViewProps> = ({ employees, onUpdateEmploye
   const handleSync = async () => {
     setSyncStatus('syncing');
     try {
-      const ajustesDoMes = getAllAjustesForMonth(unidade, mesAno);
+      const todosAjustes = getAllAjustes(unidade);
       const registros = linhas.map((l) => {
-        const ajuste = ajustesDoMes.find((a) => a.funcionarioId === l.funcionarioId);
+        const ajuste = todosAjustes.find((a) => a.funcionarioId === l.funcionarioId);
         return {
           funcionarioId: l.funcionarioId,
-          diasVale: l.diasVale,
-          valorDia: l.valorDia,
-          valorTotal: l.valorTotal,
-          folgasManuais: ajuste?.folgasManuais,
+          diasVA: l.diasVA,
+          valorVA: l.valorVA,
+          totalVA: l.totalVA,
+          diasVT: l.diasVT,
+          valorVT: l.valorVT,
+          totalVT: l.totalVT,
+          diasSemanaFolga: ajuste?.diasSemanaFolga,
           feriasInicio: ajuste?.feriasInicio,
           feriasFim: ajuste?.feriasFim,
         };
@@ -89,14 +111,17 @@ export const ValesView: React.FC<ValesViewProps> = ({ employees, onUpdateEmploye
   };
 
   const handleExportCSV = () => {
-    const headers = ['Nome', 'Cargo', 'ChavePix', 'DiasVale', 'ValorDia', 'ValorTotal'];
+    const headers = ['Nome', 'Cargo', 'ChavePix', 'DiasVA', 'ValorVA', 'TotalVA', 'DiasVT', 'ValorVT', 'TotalVT'];
     const rows = linhas.map((l) => [
       `"${l.nome.replace(/"/g, '""')}"`,
       `"${(l.cargo || '').replace(/"/g, '""')}"`,
       `"${l.chavePix}"`,
-      l.diasVale,
-      l.valorDia.toFixed(2),
-      l.valorTotal.toFixed(2),
+      l.diasVA,
+      l.valorVA.toFixed(2),
+      l.totalVA.toFixed(2),
+      l.diasVT,
+      l.valorVT.toFixed(2),
+      l.totalVT.toFixed(2),
     ]);
     const csvContent = [headers.join(';'), ...rows.map((r) => r.join(';'))].join('\n');
     const blob = new Blob(['﻿' + csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -140,49 +165,75 @@ export const ValesView: React.FC<ValesViewProps> = ({ employees, onUpdateEmploye
       </div>
 
       {/* Toolbar */}
-      <div className="bg-white/5 backdrop-blur-2xl p-4 border border-white/10 rounded-2xl shadow-2xl flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <label className="text-sm text-slate-300 font-medium">Mês:</label>
-          <input
-            type="month"
-            value={mesAno}
-            onChange={(e) => setMesAno(e.target.value)}
-            className="px-3 py-2 bg-white/5 border border-white/15 rounded-xl text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
-          />
-          <span className="text-sm text-slate-400">
-            Total do mês: <span className="text-white font-bold">R$ {totalGeral.toFixed(2)}</span>
-          </span>
+      <div className="bg-white/5 backdrop-blur-2xl p-4 border border-white/10 rounded-2xl shadow-2xl space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <label className="text-sm text-slate-300 font-medium">Mês:</label>
+            <input
+              type="month"
+              value={mesAno}
+              onChange={(e) => setMesAno(e.target.value)}
+              className="px-3 py-2 bg-white/5 border border-white/15 rounded-xl text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+            />
+            <label className="text-sm text-slate-300 font-medium ml-2">VA (todos):</label>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={valorVAInput}
+              onChange={(e) => setValorVAInput(e.target.value)}
+              onBlur={handleSaveValorVA}
+              className="w-24 px-2 py-2 bg-white/5 border border-white/15 rounded-xl text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+            />
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleExportCSV}
+              className="flex items-center gap-2 px-3.5 py-2.5 text-xs font-semibold text-slate-200 bg-white/5 hover:bg-white/10 border border-white/15 rounded-xl backdrop-blur-md hover:border-white/25 transition-all cursor-pointer shadow-xs"
+            >
+              <Download className="w-4 h-4 text-indigo-300" />
+              <span>Exportar CSV</span>
+            </button>
+            <button
+              onClick={handleSync}
+              disabled={syncStatus === 'syncing'}
+              className="flex items-center gap-2 px-3.5 py-2.5 text-xs font-semibold text-emerald-200 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 rounded-xl backdrop-blur-md transition-all cursor-pointer shadow-xs disabled:opacity-50"
+            >
+              <RefreshCw className={`w-4 h-4 text-emerald-400 ${syncStatus === 'syncing' ? 'animate-spin' : ''}`} />
+              <span>{syncStatus === 'syncing' ? 'Sincronizando...' : 'Sincronizar planilha'}</span>
+            </button>
+          </div>
         </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={handleExportCSV}
-            className="flex items-center gap-2 px-3.5 py-2.5 text-xs font-semibold text-slate-200 bg-white/5 hover:bg-white/10 border border-white/15 rounded-xl backdrop-blur-md hover:border-white/25 transition-all cursor-pointer shadow-xs"
-          >
-            <Download className="w-4 h-4 text-indigo-300" />
-            <span>Exportar CSV</span>
-          </button>
-          <button
-            onClick={handleSync}
-            disabled={syncStatus === 'syncing'}
-            className="flex items-center gap-2 px-3.5 py-2.5 text-xs font-semibold text-emerald-200 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 rounded-xl backdrop-blur-md transition-all cursor-pointer shadow-xs disabled:opacity-50"
-          >
-            <RefreshCw className={`w-4 h-4 text-emerald-400 ${syncStatus === 'syncing' ? 'animate-spin' : ''}`} />
-            <span>{syncStatus === 'syncing' ? 'Sincronizando...' : 'Sincronizar planilha'}</span>
-          </button>
+
+        <div className="flex flex-wrap gap-3">
+          <div className="px-4 py-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-sm">
+            <span className="text-amber-200/80">Total VA: </span>
+            <span className="text-amber-200 font-bold">R$ {totalVA.toFixed(2)}</span>
+          </div>
+          <div className="px-4 py-2 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-sm">
+            <span className="text-indigo-200/80">Total VT: </span>
+            <span className="text-indigo-200 font-bold">R$ {totalVT.toFixed(2)}</span>
+          </div>
+          <div className="px-4 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-sm">
+            <span className="text-emerald-200/80">Total Geral: </span>
+            <span className="text-emerald-200 font-bold">R$ {totalGeral.toFixed(2)}</span>
+          </div>
         </div>
       </div>
 
       {/* Table */}
-      <div className="bg-white/5 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
+      <div className="bg-white/5 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-2xl overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-white/5 border-b border-white/10 text-left text-slate-300 font-semibold">
               <th className="px-4 py-3">Nome</th>
               <th className="px-4 py-3">Cargo</th>
               <th className="px-4 py-3">Chave PIX</th>
-              <th className="px-4 py-3 text-center">Dias de vale</th>
-              <th className="px-4 py-3 text-right">Valor/dia</th>
-              <th className="px-4 py-3 text-right">Total</th>
+              <th className="px-4 py-3 text-center">Dias VA</th>
+              <th className="px-4 py-3 text-right">Total VA</th>
+              <th className="px-4 py-3 text-center">Dias VT</th>
+              <th className="px-4 py-3 text-right">Valor VT/dia</th>
+              <th className="px-4 py-3 text-right">Total VT</th>
               <th className="px-4 py-3 text-center">Ajustes</th>
             </tr>
           </thead>
@@ -194,24 +245,24 @@ export const ValesView: React.FC<ValesViewProps> = ({ employees, onUpdateEmploye
                   <td className="px-4 py-3 text-white font-medium">{linha.nome}</td>
                   <td className="px-4 py-3 text-slate-300">{linha.cargo || '—'}</td>
                   <td className="px-4 py-3 text-slate-300">{linha.chavePix || '—'}</td>
-                  <td className="px-4 py-3 text-center text-slate-200">{linha.diasVale}</td>
+                  <td className="px-4 py-3 text-center text-slate-200">{linha.diasVA}</td>
+                  <td className="px-4 py-3 text-right text-amber-300 font-semibold">R$ {linha.totalVA.toFixed(2)}</td>
+                  <td className="px-4 py-3 text-center text-slate-200">{linha.diasVT}</td>
                   <td className="px-4 py-3 text-right">
                     <input
                       type="number"
                       step="0.01"
                       min="0"
-                      value={linha.valorDia}
+                      value={linha.valorVT}
                       onChange={(e) => onUpdateEmployee(linha.funcionarioId, Number(e.target.value) || 0)}
                       className="w-24 px-2 py-1 bg-white/5 border border-white/15 rounded-lg text-right text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
                     />
                   </td>
-                  <td className="px-4 py-3 text-right text-emerald-300 font-semibold">
-                    R$ {linha.valorTotal.toFixed(2)}
-                  </td>
+                  <td className="px-4 py-3 text-right text-indigo-300 font-semibold">R$ {linha.totalVT.toFixed(2)}</td>
                   <td className="px-4 py-3 text-center">
                     <button
                       onClick={() => setAjusteModalFuncionario(emp)}
-                      title="Marcar folgas/férias deste mês"
+                      title="Marcar folga fixa da semana / férias"
                       className="inline-flex items-center justify-center p-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white transition-colors cursor-pointer"
                     >
                       <Settings2 className="w-4 h-4" />
@@ -222,7 +273,7 @@ export const ValesView: React.FC<ValesViewProps> = ({ employees, onUpdateEmploye
             })}
             {linhas.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-slate-400">
+                <td colSpan={9} className="px-4 py-8 text-center text-slate-400">
                   Nenhum funcionário nesta unidade.
                 </td>
               </tr>
@@ -235,8 +286,7 @@ export const ValesView: React.FC<ValesViewProps> = ({ employees, onUpdateEmploye
         <ValeAjusteModal
           isOpen={true}
           funcionarioNome={ajusteModalFuncionario.nome}
-          mesAno={mesAno}
-          ajusteAtual={getAjuste(ajusteModalFuncionario.id, unidade, mesAno)}
+          ajusteAtual={getAjuste(ajusteModalFuncionario.id, unidade)}
           onClose={() => setAjusteModalFuncionario(null)}
           onSave={handleSaveAjuste}
         />

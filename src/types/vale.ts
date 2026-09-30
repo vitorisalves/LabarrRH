@@ -3,10 +3,9 @@ export type UnidadeVale = '710_711' | 'parkshopping';
 export interface AjusteArmazenado {
   funcionarioId: string;
   unidade: UnidadeVale;
-  mesAno: string; // 'YYYY-MM'
-  folgasManuais?: number[];
-  feriasInicio?: string; // 'YYYY-MM-DD'
-  feriasFim?: string; // 'YYYY-MM-DD'
+  diasSemanaFolga?: number[]; // 0 (domingo) - 6 (sábado), persistente entre meses
+  feriasInicio?: string; // 'YYYY-MM-DD', persistente entre meses
+  feriasFim?: string; // 'YYYY-MM-DD', persistente entre meses
 }
 
 export interface ValeCalculado {
@@ -14,7 +13,10 @@ export interface ValeCalculado {
   nome: string;
   cargo?: string;
   chavePix: string;
-  diasVale: number;
-  valorDia: number;
-  valorTotal: number;
+  diasVA: number;
+  valorVA: number;
+  totalVA: number;
+  diasVT: number;
+  valorVT: number;
+  totalVT: number;
 }

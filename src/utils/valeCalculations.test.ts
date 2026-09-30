@@ -1,6 +1,15 @@
 import { describe, it, expect } from 'vitest';
 import { getDiasAtivosNoMes, removerFerias, calcularDiasVale, calcularValeFuncionario } from './valeCalculations';
 
+function countWeekday(ano: number, mes: number, weekday: number): number {
+  const diasNoMes = new Date(ano, mes, 0).getDate();
+  let count = 0;
+  for (let d = 1; d <= diasNoMes; d++) {
+    if (new Date(ano, mes - 1, d).getDay() === weekday) count++;
+  }
+  return count;
+}
+
 describe('getDiasAtivosNoMes', () => {
   it('returns full month when admissao is before the month and no desligamento', () => {
     const janela = getDiasAtivosNoMes('01/01/2020', undefined, '2026-09');
@@ -41,25 +50,26 @@ describe('removerFerias', () => {
 });
 
 describe('calcularDiasVale', () => {
-  it('applies 5/7 proportion for 710/711 with no manual folgas', () => {
+  it('applies 5/7 proportion (VA-style) with no manual folgas', () => {
     const janela = getDiasAtivosNoMes('01/01/2020', undefined, '2026-09');
     const dias = calcularDiasVale({ diasRestantes: 30, janela, mesAno: '2026-09', proporcao: 5 });
     expect(dias).toBe(Math.round((30 * 5) / 7));
   });
 
-  it('uses exact remaining days minus manual folgas when folgas provided', () => {
+  it('uses weekday-based folga count when diasSemanaFolga is set', () => {
     const janela = getDiasAtivosNoMes('01/01/2020', undefined, '2026-09');
+    // Segunda-feira (1) as the fixed day off in September 2026
     const dias = calcularDiasVale({
       diasRestantes: 30,
       janela,
       mesAno: '2026-09',
       proporcao: 5,
-      folgasManuais: [6, 13, 20, 27],
+      diasSemanaFolga: [1],
     });
-    expect(dias).toBe(26);
+    expect(dias).toBe(30 - countWeekday(2026, 9, 1));
   });
 
-  it('applies 6/7 proportion and subtracts Sundays for parkshopping', () => {
+  it('applies 6/7 proportion and subtracts Sundays for parkshopping VT', () => {
     const janela = getDiasAtivosNoMes('01/01/2020', undefined, '2026-09');
     const dias = calcularDiasVale({
       diasRestantes: 30,
@@ -69,20 +79,35 @@ describe('calcularDiasVale', () => {
       excluirDomingos: true,
     });
     const proporcional = Math.round((30 * 6) / 7);
-    expect(dias).toBe(proporcional - countSundays(2026, 9));
+    expect(dias).toBe(proporcional - countWeekday(2026, 9, 0));
   });
 
-  it('subtracts Sundays even when manual folgas are set', () => {
+  it('subtracts Sundays even when weekday folgas are set', () => {
     const janela = getDiasAtivosNoMes('01/01/2020', undefined, '2026-09');
     const dias = calcularDiasVale({
       diasRestantes: 30,
       janela,
       mesAno: '2026-09',
       proporcao: 6,
-      folgasManuais: [10],
+      diasSemanaFolga: [2], // terça
       excluirDomingos: true,
     });
-    expect(dias).toBe(30 - 1 - countSundays(2026, 9));
+    expect(dias).toBe(30 - countWeekday(2026, 9, 2) - countWeekday(2026, 9, 0));
+  });
+
+  it('does not double-count a weekday folga that falls inside ferias', () => {
+    const janela = getDiasAtivosNoMes('01/01/2020', undefined, '2026-09');
+    // Ferias covers the whole month; folga on Monday should not further reduce below 0
+    const dias = calcularDiasVale({
+      diasRestantes: 0,
+      janela,
+      mesAno: '2026-09',
+      proporcao: 5,
+      diasSemanaFolga: [1],
+      feriasInicio: '2026-09-01',
+      feriasFim: '2026-09-30',
+    });
+    expect(dias).toBe(0);
   });
 
   it('never returns negative days', () => {
@@ -92,58 +117,74 @@ describe('calcularDiasVale', () => {
       janela,
       mesAno: '2026-09',
       proporcao: 5,
-      folgasManuais: Array.from({ length: 25 }, (_, i) => i + 1),
+      diasSemanaFolga: [0, 1, 2, 3, 4, 5, 6],
     });
     expect(dias).toBe(0);
   });
 });
 
-function countSundays(ano: number, mes: number): number {
-  const diasNoMes = new Date(ano, mes, 0).getDate();
-  let count = 0;
-  for (let d = 1; d <= diasNoMes; d++) {
-    if (new Date(ano, mes - 1, d).getDay() === 0) count++;
-  }
-  return count;
-}
-
 describe('calcularValeFuncionario', () => {
-  it('orchestrates window + ferias + proportion for 710_711', () => {
+  it('computes VA (always 5/7, global value) and VT (unit proportion, per-employee value) for 710_711', () => {
     const result = calcularValeFuncionario(
-      { admissao: '01/01/2020', valorValeDia: 20 },
-      '710_711',
-      '2026-09'
-    );
-    expect(result.diasVale).toBe(21);
-    expect(result.valorDia).toBe(20);
-    expect(result.valorTotal).toBe(420);
-  });
-
-  it('orchestrates window + proportion + Sunday exclusion for parkshopping', () => {
-    const result = calcularValeFuncionario(
-      { admissao: '01/01/2020', valorValeDia: 15 },
-      'parkshopping',
-      '2026-09'
-    );
-    const expectedDias = Math.round((30 * 6) / 7) - countSundays(2026, 9);
-    expect(result.diasVale).toBe(expectedDias);
-    expect(result.valorTotal).toBe(expectedDias * 15);
-  });
-
-  it('applies ferias before proportion', () => {
-    const result = calcularValeFuncionario(
-      { admissao: '01/01/2020', valorValeDia: 20 },
+      { admissao: '01/01/2020', valorVT: 15 },
       '710_711',
       '2026-09',
-      { feriasInicio: '2026-09-01', feriasFim: '2026-09-30' }
+      20
     );
-    expect(result.diasVale).toBe(0);
-    expect(result.valorTotal).toBe(0);
+    const esperado = Math.round((30 * 5) / 7);
+    expect(result.diasVA).toBe(esperado);
+    expect(result.valorVA).toBe(20);
+    expect(result.totalVA).toBe(esperado * 20);
+    expect(result.diasVT).toBe(esperado); // same 5/7 proportion for 710/711 VT
+    expect(result.valorVT).toBe(15);
+    expect(result.totalVT).toBe(esperado * 15);
   });
 
-  it('defaults valorDia to 0 when not set', () => {
-    const result = calcularValeFuncionario({ admissao: '01/01/2020' }, '710_711', '2026-09');
-    expect(result.valorDia).toBe(0);
-    expect(result.valorTotal).toBe(0);
+  it('computes VA without Sunday exclusion but VT with it for parkshopping', () => {
+    const result = calcularValeFuncionario(
+      { admissao: '01/01/2020', valorVT: 10 },
+      'parkshopping',
+      '2026-09',
+      20
+    );
+    const vaEsperado = Math.round((30 * 5) / 7);
+    const vtEsperado = Math.round((30 * 6) / 7) - countWeekday(2026, 9, 0);
+    expect(result.diasVA).toBe(vaEsperado);
+    expect(result.diasVT).toBe(vtEsperado);
+    expect(result.totalVA).toBe(vaEsperado * 20);
+    expect(result.totalVT).toBe(vtEsperado * 10);
+  });
+
+  it('applies ferias before both VA and VT calculations', () => {
+    const result = calcularValeFuncionario(
+      { admissao: '01/01/2020', valorVT: 20 },
+      '710_711',
+      '2026-09',
+      20,
+      { feriasInicio: '2026-09-01', feriasFim: '2026-09-30' }
+    );
+    expect(result.diasVA).toBe(0);
+    expect(result.diasVT).toBe(0);
+    expect(result.totalVA).toBe(0);
+    expect(result.totalVT).toBe(0);
+  });
+
+  it('defaults valorVT to 0 when not set', () => {
+    const result = calcularValeFuncionario({ admissao: '01/01/2020' }, '710_711', '2026-09', 20);
+    expect(result.valorVT).toBe(0);
+    expect(result.totalVT).toBe(0);
+  });
+
+  it('applies weekday folga consistently to both VA and VT', () => {
+    const result = calcularValeFuncionario(
+      { admissao: '01/01/2020', valorVT: 10 },
+      '710_711',
+      '2026-09',
+      20,
+      { diasSemanaFolga: [1] } // segunda
+    );
+    const esperado = 30 - countWeekday(2026, 9, 1);
+    expect(result.diasVA).toBe(esperado);
+    expect(result.diasVT).toBe(esperado);
   });
 });
