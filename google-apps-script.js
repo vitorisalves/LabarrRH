@@ -171,11 +171,11 @@ function handleGetVales(e) {
       valorVT: Number(row[6] || 0),
       totalVT: Number(row[7] || 0),
       diasSemanaFolga: cellToString(row[8])
-        .split(',')
+        .split(';')
         .filter((v) => v.trim() !== '')
         .map(Number),
       folgasExtras: cellToString(row[9])
-        .split(',')
+        .split(';')
         .filter((v) => v.trim() !== ''),
       feriasInicio: String(row[10] || ''),
       feriasFim: String(row[11] || ''),
@@ -433,8 +433,8 @@ function handleSyncVales(body) {
       r.diasVT || 0,
       r.valorVT || 0,
       r.totalVT || 0,
-      (r.diasSemanaFolga || []).join(','),
-      (r.folgasExtras || []).join(','),
+      (r.diasSemanaFolga || []).join(';'),
+      (r.folgasExtras || []).join(';'),
       r.feriasInicio || '',
       r.feriasFim || '',
       now,
