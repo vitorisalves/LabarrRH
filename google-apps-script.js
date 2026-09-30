@@ -185,10 +185,11 @@ function handleGetConfig() {
 
     const data = sheet.getDataRange().getValues();
     let valorVA = 0;
+    // Usa a ÚLTIMA ocorrência (não a primeira): protege contra linhas 'valorVA'
+    // órfãs de execuções antigas, que ficam acima da mais recente.
     for (let r = 1; r < data.length; r++) {
       if (String(data[r][0] || '').trim() === 'valorVA') {
         valorVA = Number(data[r][1]) || 0;
-        break;
       }
     }
 
@@ -450,24 +451,14 @@ function handleSaveConfig(body) {
     let sheet = ss.getSheetByName(CONFIG_SHEET_NAME);
     if (!sheet) {
       sheet = ss.insertSheet(CONFIG_SHEET_NAME);
-      sheet.appendRow(['Chave', 'Valor']);
-      formatHeaderRow(sheet);
     }
 
-    const data = sheet.getDataRange().getValues();
-    let rowIndex = -1;
-    for (let r = 1; r < data.length; r++) {
-      if (String(data[r][0] || '').trim() === 'valorVA') {
-        rowIndex = r + 1; // 1-indexed sheet row
-        break;
-      }
-    }
-
-    if (rowIndex === -1) {
-      sheet.appendRow(['valorVA', valorVA]);
-    } else {
-      sheet.getRange(rowIndex, 2).setValue(valorVA);
-    }
+    // Limpa e reescreve por completo: evita linhas 'valorVA' órfãs/duplicadas
+    // de execuções anteriores fazendo com que a leitura pegue um valor antigo.
+    sheet.clearContents();
+    sheet.appendRow(['Chave', 'Valor']);
+    formatHeaderRow(sheet);
+    sheet.appendRow(['valorVA', valorVA]);
 
     return ContentService.createTextOutput(JSON.stringify({ status: 'success', valorVA })).setMimeType(ContentService.MimeType.JSON);
   } catch (err) {
