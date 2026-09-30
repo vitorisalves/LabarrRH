@@ -62,6 +62,8 @@ export const ValeAjusteModal: React.FC<ValeAjusteModalProps> = ({
   const [ano, mes] = mesAno.split('-').map(Number);
   const diasNoMes = new Date(ano, mes, 0).getDate();
   const dias = Array.from({ length: diasNoMes }, (_, i) => i + 1);
+  const primeiroDiaSemana = new Date(ano, mes - 1, 1).getDay(); // 0 (dom) a 6 (sáb)
+  const espacosVazios = Array.from({ length: primeiroDiaSemana }, (_, i) => i);
 
   const toggleDia = (dia: number) => {
     const next = new Set(diasFolga);
@@ -140,7 +142,17 @@ export const ValeAjusteModal: React.FC<ValeAjusteModalProps> = ({
             <CalendarClock className="w-4 h-4" />
             <span>Folgas extras de {mesLabel}</span>
           </div>
+          <div className="grid grid-cols-7 gap-1.5 mb-1.5">
+            {DIAS_SEMANA.map(({ value, label }) => (
+              <div key={value} className="text-center text-[11px] font-semibold text-slate-500 uppercase">
+                {label}
+              </div>
+            ))}
+          </div>
           <div className="grid grid-cols-7 gap-1.5">
+            {espacosVazios.map((i) => (
+              <div key={`empty-${i}`} />
+            ))}
             {dias.map((dia) => {
               const dataDoDia = new Date(ano, mes - 1, dia);
               const iso = formatISODate(dataDoDia);
