@@ -117,7 +117,7 @@ export function calcularValeFuncionario(
 ): ValeResultado {
   const janela = getDiasAtivosNoMes(employee.admissao, employee.desligamento, mesAno);
 
-  const dias = calcularDiasVale({
+  const diasVA = calcularDiasVale({
     janela,
     mesAno,
     diasSemanaFolga: ajuste?.diasSemanaFolga,
@@ -126,13 +126,22 @@ export function calcularValeFuncionario(
     feriasFim: ajuste?.feriasFim,
   });
 
+  const diasVT = calcularDiasVale({
+    janela,
+    mesAno,
+    diasSemanaFolga: ajuste?.diasSemanaFolga,
+    excluirDomingos: false,
+    feriasInicio: ajuste?.feriasInicio,
+    feriasFim: ajuste?.feriasFim,
+  });
+
   const vt = employee.valorVT || 0;
   return {
-    diasVA: dias,
+    diasVA,
     valorVA,
-    totalVA: dias * valorVA,
-    diasVT: dias,
+    totalVA: diasVA * valorVA,
+    diasVT,
     valorVT: vt,
-    totalVT: dias * vt,
+    totalVT: diasVT * vt,
   };
 }

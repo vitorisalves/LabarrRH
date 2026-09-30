@@ -113,16 +113,16 @@ describe('calcularValeFuncionario', () => {
     expect(result.totalVT).toBe(450);
   });
 
-  it('excludes Sunday from both VA and VT for parkshopping', () => {
+  it('excludes Sunday from VA only for parkshopping; VT counts every day', () => {
     const result = calcularValeFuncionario(
       { admissao: '01/01/2020', valorVT: 10 },
       'parkshopping',
       '2026-09',
       20
     );
-    const esperado = 30 - countWeekday(2026, 9, 0);
-    expect(result.diasVA).toBe(esperado);
-    expect(result.diasVT).toBe(esperado);
+    const vaEsperado = 30 - countWeekday(2026, 9, 0);
+    expect(result.diasVA).toBe(vaEsperado);
+    expect(result.diasVT).toBe(30);
   });
 
   it('applies ferias to both VA and VT', () => {
