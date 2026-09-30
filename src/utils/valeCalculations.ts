@@ -145,7 +145,7 @@ export function calcularValeFuncionario(
     mesAno,
     diasSemanaFolga: ajuste?.diasSemanaFolga,
     folgasExtras: ajuste?.folgasExtras,
-    excluirDomingos: false,
+    excluirDomingos: unidade === 'parkshopping',
     feriasInicio: ajuste?.feriasInicio,
     feriasFim: ajuste?.feriasFim,
   });
