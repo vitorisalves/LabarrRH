@@ -124,6 +124,15 @@ function doGet(e) {
   return handleGetEmployees();
 }
 
+function normalizeMesAno(value) {
+  if (value instanceof Date) {
+    const year = value.getFullYear();
+    const month = String(value.getMonth() + 1).padStart(2, '0');
+    return `${year}-${month}`;
+  }
+  return String(value || '');
+}
+
 function handleGetVales(e) {
   try {
     const unidade = e.parameter.unidade;
@@ -145,7 +154,7 @@ function handleGetVales(e) {
 
     const rows = data.slice(1).map((row) => ({
       funcionarioId: String(row[0] || ''),
-      mesAno: String(row[1] || ''),
+      mesAno: normalizeMesAno(row[1]),
       diasVA: Number(row[2] || 0),
       valorVA: Number(row[3] || 0),
       totalVA: Number(row[4] || 0),
@@ -396,7 +405,7 @@ function handleSyncVales(body) {
     const data = sheet.getDataRange().getValues();
     const existingRows = data.length > 1 ? data.slice(1) : [];
 
-    const keptRows = existingRows.filter((row) => String(row[1] || '') !== mesAno);
+    const keptRows = existingRows.filter((row) => normalizeMesAno(row[1]) !== mesAno);
 
     const now = new Date().toISOString();
     const newRows = registros.map((r) => [
@@ -420,6 +429,11 @@ function handleSyncVales(body) {
     sheet.appendRow(VALE_HEADERS);
     formatHeaderRow(sheet);
     if (allRows.length > 0) {
+      // Força texto puro em MesAno/FeriasInicio/FeriasFim para o Sheets não
+      // autoconverter para Data, o que quebraria a comparação de upsert acima.
+      sheet.getRange(2, 2, allRows.length, 1).setNumberFormat('@');
+      sheet.getRange(2, 10, allRows.length, 1).setNumberFormat('@');
+      sheet.getRange(2, 11, allRows.length, 1).setNumberFormat('@');
       sheet.getRange(2, 1, allRows.length, VALE_HEADERS.length).setValues(allRows);
     }
 
