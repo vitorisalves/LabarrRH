@@ -141,7 +141,7 @@ export default function App() {
 
   // Filtered employees for current tab + search
   const filteredEmployees = useMemo(() => {
-    return employees
+    const filtered = employees
       .filter((e) => e.aba === activeTab)
       .filter((e) => {
         if (!searchTerm.trim()) return true;
@@ -154,7 +154,26 @@ export default function App() {
           (e.cargo && e.cargo.toLowerCase().includes(term))
         );
       });
+
+    if (activeTab === '710_711') {
+      // Funcionários da Loja sempre aparecem primeiro
+      return [...filtered].sort((a, b) => {
+        const aLoja = a.setor === 'loja' ? 0 : 1;
+        const bLoja = b.setor === 'loja' ? 0 : 1;
+        return aLoja - bLoja;
+      });
+    }
+
+    return filtered;
   }, [employees, activeTab, searchTerm]);
+
+  const handleUpdateSetor = (employeeId: string, setor: 'loja' | 'fabrica') => {
+    const updatedList = employees.map((emp) =>
+      emp.id === employeeId ? { ...emp, setor, updatedAt: new Date().toISOString() } : emp
+    );
+    setEmployees(updatedList);
+    triggerSheetsSync(updatedList);
+  };
 
   // Actions
   const handleSaveEmployee = (data: NewEmployeeFormData, id?: string) => {
@@ -309,6 +328,7 @@ export default function App() {
                 onTransfer={openTransferModal}
                 onDelete={openDeleteModal}
                 onNewEmployee={openNewEmployeeModal}
+                onUpdateSetor={handleUpdateSetor}
               />
             </div>
           </>

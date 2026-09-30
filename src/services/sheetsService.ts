@@ -30,6 +30,7 @@ export async function fetchEmployeesFromSheets(): Promise<Employee[]> {
 
           const rawCargo = item.cargo || item.Cargo || item.funcao || item.Funcao || item['Função'] || item['Cargo / Função'] || item['Cargo/Função'] || '';
           const rawValorVT = item.valorVT ?? item['Valor VT/Dia'] ?? item.valorValeDia ?? item['Valor Vale/Dia'] ?? 0;
+          const rawSetor = item.setor || item.Setor || '';
 
           return {
             id: item.id || `emp_remote_${index + 1}_${Date.now()}`,
@@ -47,6 +48,7 @@ export async function fetchEmployeesFromSheets(): Promise<Employee[]> {
             telefoneContatoEmergencia: item.telefoneContatoEmergencia || item['Telefone Emergência'] || item['Telefone Contato Emergência'] || '',
             aba: item.aba || item.Aba || '710_711',
             cargo: rawCargo,
+            setor: rawSetor === 'loja' || rawSetor === 'fabrica' ? rawSetor : undefined,
             valorVT: typeof rawValorVT === 'number' ? rawValorVT : Number(rawValorVT) || 0,
             observacoes: item.observacoes || item.Observacoes || item['Observações'] || '',
             dataDesligamento: item.dataDesligamento || item['Data de Desligamento'] ? formatDateBR(item.dataDesligamento || item['Data de Desligamento']) : '',
@@ -72,6 +74,7 @@ export async function syncEmployeesToSheets(employees: Employee[]): Promise<{ st
   const formattedEmployees = employees.map((emp) => ({
     ...emp,
     cargo: emp.cargo || '',
+    setor: emp.setor || '',
     valorVT: emp.valorVT || 0,
     tipoChavePix: emp.tipoChavePix || detectPixType(emp.chavePix),
     dataNascimento: emp.dataNascimento ? formatDateBR(emp.dataNascimento) : '',

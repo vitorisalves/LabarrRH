@@ -33,10 +33,18 @@ export const ValesView: React.FC<ValesViewProps> = ({ employees, onUpdateEmploye
     });
   }, []);
 
-  const funcionariosDaUnidade = useMemo(
-    () => employees.filter((e) => e.aba === unidade),
-    [employees, unidade]
-  );
+  const funcionariosDaUnidade = useMemo(() => {
+    const filtrados = employees.filter((e) => e.aba === unidade);
+    if (unidade === '710_711') {
+      // Funcionários da Loja sempre aparecem primeiro, igual na tela de Funcionários
+      return [...filtrados].sort((a, b) => {
+        const aLoja = a.setor === 'loja' ? 0 : 1;
+        const bLoja = b.setor === 'loja' ? 0 : 1;
+        return aLoja - bLoja;
+      });
+    }
+    return filtrados;
+  }, [employees, unidade]);
 
   const linhas: ValeCalculado[] = useMemo(() => {
     return funcionariosDaUnidade.map((emp) => {
@@ -250,7 +258,20 @@ export const ValesView: React.FC<ValesViewProps> = ({ employees, onUpdateEmploye
               const emp = funcionariosDaUnidade.find((e) => e.id === linha.funcionarioId)!;
               return (
                 <tr key={linha.funcionarioId} className="border-b border-white/5 hover:bg-white/5 transition-colors">
-                  <td className="px-4 py-3 text-white font-medium">{linha.nome}</td>
+                  <td className="px-4 py-3 text-white font-medium">
+                    {linha.nome}
+                    {unidade === '710_711' && emp.setor && (
+                      <span
+                        className={`ml-2 text-[10px] font-bold uppercase px-1.5 py-0.5 rounded border ${
+                          emp.setor === 'loja'
+                            ? 'bg-sky-500/15 text-sky-300 border-sky-500/30'
+                            : 'bg-orange-500/15 text-orange-300 border-orange-500/30'
+                        }`}
+                      >
+                        {emp.setor === 'loja' ? 'Loja' : 'Fábrica'}
+                      </span>
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-slate-300">{linha.cargo || '—'}</td>
                   <td className="px-4 py-3 text-slate-300">{linha.chavePix || '—'}</td>
                   <td className="px-4 py-3 text-center text-slate-200">{linha.diasVA}</td>

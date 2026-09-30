@@ -21,6 +21,7 @@ const HEADERS = [
   'Data de Nascimento',
   'Data de Admissão',
   'Cargo',
+  'Setor',
   'Valor VT/Dia',
   'E-mail',
   'Chave PIX',
@@ -270,6 +271,7 @@ function handleGetEmployees() {
         const chavePix = getVal(['Chave PIX', 'Chave Pix', 'chave pix', 'pix', 'chave_pix']);
         const tipoChavePix = getVal(['Tipo Chave PIX', 'Tipo Chave Pix', 'tipo pix', 'tipo_chave_pix']);
         const cargo = getVal(['Cargo', 'cargo', 'Cargo / Função', 'Função', 'funcao', 'Funcao']);
+        const setor = getVal(['Setor', 'setor']);
         const valorVT = getVal(['Valor VT/Dia', 'valorVT', 'Valor VT Dia', 'Valor Vale/Dia']);
 
         allEmployees.push({
@@ -281,6 +283,7 @@ function handleGetEmployees() {
           dataNascimento: getVal(['Data de Nascimento', 'dataNascimento', 'nascimento', 'Data Nascimento']),
           dataAdmissao: getVal(['Data de Admissão', 'dataAdmissao', 'admissao', 'Data Admissão']),
           cargo: cargo,
+          setor: setor,
           valorVT: valorVT ? Number(String(valorVT).replace(',', '.')) : 0,
           email: getVal(['E-mail', 'Email', 'email', 'E-Mail']),
           chavePix: chavePix,
@@ -357,6 +360,7 @@ function doPost(e) {
           emp.dataNascimento || '',
           emp.dataAdmissao || '',
           emp.cargo || '',
+          emp.setor || '',
           emp.valorVT || '',
           emp.email || '',
           emp.chavePix || '',

@@ -17,6 +17,7 @@ export interface Employee {
   aba: TabType;
   cargo?: string;
   valorVT?: number;
+  setor?: 'loja' | 'fabrica'; // só relevante na unidade 710/711
   observacoes?: string;
   dataDesligamento?: string;
   motivoInativacao?: string;

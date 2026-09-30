@@ -27,6 +27,7 @@ interface EmployeeTableProps {
   onTransfer: (employee: Employee) => void;
   onDelete: (employee: Employee) => void;
   onNewEmployee: () => void;
+  onUpdateSetor?: (employeeId: string, setor: 'loja' | 'fabrica') => void;
 }
 
 export const EmployeeTable: React.FC<EmployeeTableProps> = ({
@@ -37,6 +38,7 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = ({
   onTransfer,
   onDelete,
   onNewEmployee,
+  onUpdateSetor,
 }) => {
   const [copiedPixId, setCopiedPixId] = useState<string | null>(null);
 
@@ -125,6 +127,33 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = ({
                           </>
                         )}
                       </div>
+                      {activeTab === '710_711' && (
+                        <select
+                          value={emp.setor || ''}
+                          onChange={(e) => {
+                            e.stopPropagation();
+                            onUpdateSetor?.(emp.id, e.target.value as 'loja' | 'fabrica');
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                          className={`mt-1.5 text-[11px] font-bold uppercase px-2 py-0.5 rounded-md border cursor-pointer focus:outline-none focus:ring-1 focus:ring-indigo-400/50 ${
+                            emp.setor === 'loja'
+                              ? 'bg-sky-500/15 text-sky-300 border-sky-500/30'
+                              : emp.setor === 'fabrica'
+                              ? 'bg-orange-500/15 text-orange-300 border-orange-500/30'
+                              : 'bg-white/5 text-slate-400 border-white/10'
+                          }`}
+                        >
+                          <option value="" className="bg-slate-900 text-slate-400">
+                            Setor...
+                          </option>
+                          <option value="loja" className="bg-slate-900 text-sky-300">
+                            Loja
+                          </option>
+                          <option value="fabrica" className="bg-slate-900 text-orange-300">
+                            Fábrica
+                          </option>
+                        </select>
+                      )}
                     </div>
                   </div>
                 </td>
