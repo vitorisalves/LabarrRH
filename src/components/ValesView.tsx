@@ -73,7 +73,12 @@ export const ValesView: React.FC<ValesViewProps> = ({ employees, onUpdateEmploye
     }
   };
 
-  const handleSaveAjuste = (ajuste: { diasSemanaFolga: number[]; feriasInicio?: string; feriasFim?: string }) => {
+  const handleSaveAjuste = (ajuste: {
+    diasSemanaFolga: number[];
+    folgasExtras: string[];
+    feriasInicio?: string;
+    feriasFim?: string;
+  }) => {
     if (!ajusteModalFuncionario) return;
     saveAjuste({
       funcionarioId: ajusteModalFuncionario.id,
@@ -98,6 +103,7 @@ export const ValesView: React.FC<ValesViewProps> = ({ employees, onUpdateEmploye
           valorVT: l.valorVT,
           totalVT: l.totalVT,
           diasSemanaFolga: ajuste?.diasSemanaFolga,
+          folgasExtras: ajuste?.folgasExtras,
           feriasInicio: ajuste?.feriasInicio,
           feriasFim: ajuste?.feriasFim,
         };
@@ -291,6 +297,7 @@ export const ValesView: React.FC<ValesViewProps> = ({ employees, onUpdateEmploye
         <ValeAjusteModal
           isOpen={true}
           funcionarioNome={ajusteModalFuncionario.nome}
+          mesAno={mesAno}
           ajusteAtual={getAjuste(ajusteModalFuncionario.id, unidade)}
           onClose={() => setAjusteModalFuncionario(null)}
           onSave={handleSaveAjuste}

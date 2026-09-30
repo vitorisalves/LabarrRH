@@ -50,6 +50,7 @@ const VALE_HEADERS = [
   'ValorVT',
   'TotalVT',
   'DiasSemanaFolga',
+  'FolgasExtras',
   'FeriasInicio',
   'FeriasFim',
   'AtualizadoEm'
@@ -165,8 +166,11 @@ function handleGetVales(e) {
         .split(',')
         .filter((v) => v.trim() !== '')
         .map(Number),
-      feriasInicio: String(row[9] || ''),
-      feriasFim: String(row[10] || ''),
+      folgasExtras: String(row[9] || '')
+        .split(',')
+        .filter((v) => v.trim() !== ''),
+      feriasInicio: String(row[10] || ''),
+      feriasFim: String(row[11] || ''),
     }));
 
     return ContentService.createTextOutput(JSON.stringify(rows)).setMimeType(ContentService.MimeType.JSON);
@@ -419,6 +423,7 @@ function handleSyncVales(body) {
       r.valorVT || 0,
       r.totalVT || 0,
       (r.diasSemanaFolga || []).join(','),
+      (r.folgasExtras || []).join(','),
       r.feriasInicio || '',
       r.feriasFim || '',
       now,
@@ -435,6 +440,7 @@ function handleSyncVales(body) {
       sheet.getRange(2, 2, allRows.length, 1).setNumberFormat('@');
       sheet.getRange(2, 10, allRows.length, 1).setNumberFormat('@');
       sheet.getRange(2, 11, allRows.length, 1).setNumberFormat('@');
+      sheet.getRange(2, 12, allRows.length, 1).setNumberFormat('@');
       sheet.getRange(2, 1, allRows.length, VALE_HEADERS.length).setValues(allRows);
     }
 

@@ -68,6 +68,29 @@ describe('calcularDiasVale', () => {
     expect(dias).toBe(30 - countWeekday(2026, 9, 1) - countWeekday(2026, 9, 0));
   });
 
+  it('subtracts specific extra folga dates (rotating day off) on top of a fixed weekday folga', () => {
+    const janela = getDiasAtivosNoMes('01/01/2020', undefined, '2026-09');
+    // Fixed Sunday off + rotating extra days marked for specific weeks
+    const dias = calcularDiasVale({
+      janela,
+      mesAno: '2026-09',
+      diasSemanaFolga: [0],
+      folgasExtras: ['2026-09-07', '2026-09-15', '2026-09-22'],
+    });
+    expect(dias).toBe(30 - countWeekday(2026, 9, 0) - 3);
+  });
+
+  it('does not double-subtract an extra folga date that already falls on a fixed weekday folga', () => {
+    const janela = getDiasAtivosNoMes('01/01/2020', undefined, '2026-09');
+    const dias = calcularDiasVale({
+      janela,
+      mesAno: '2026-09',
+      diasSemanaFolga: [1], // segunda
+      folgasExtras: ['2026-09-07'], // segunda-feira, já coberta pela folga fixa
+    });
+    expect(dias).toBe(30 - countWeekday(2026, 9, 1));
+  });
+
   it('subtracts ferias days and does not double-subtract a folga weekday inside ferias', () => {
     const janela = getDiasAtivosNoMes('01/01/2020', undefined, '2026-09');
     // Ferias covers the whole month; folga on Monday should not further reduce below 0

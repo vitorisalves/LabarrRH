@@ -11,6 +11,7 @@ export interface ValeSheetRow {
   valorVT: number;
   totalVT: number;
   diasSemanaFolga: number[];
+  folgasExtras: string[];
   feriasInicio: string;
   feriasFim: string;
 }
@@ -40,6 +41,7 @@ export async function syncValesToSheets(
     valorVT: number;
     totalVT: number;
     diasSemanaFolga?: number[];
+    folgasExtras?: string[];
     feriasInicio?: string;
     feriasFim?: string;
   }>

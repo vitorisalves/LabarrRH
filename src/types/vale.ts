@@ -4,6 +4,7 @@ export interface AjusteArmazenado {
   funcionarioId: string;
   unidade: UnidadeVale;
   diasSemanaFolga?: number[]; // 0 (domingo) - 6 (sábado), persistente entre meses
+  folgasExtras?: string[]; // datas 'YYYY-MM-DD' específicas, além da folga fixa (ex: dia rotativo da loja)
   feriasInicio?: string; // 'YYYY-MM-DD', persistente entre meses
   feriasFim?: string; // 'YYYY-MM-DD', persistente entre meses
 }

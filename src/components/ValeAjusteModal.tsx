@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, CalendarOff, Palmtree } from 'lucide-react';
+import { X, CalendarOff, Palmtree, CalendarClock } from 'lucide-react';
 
 const DIAS_SEMANA = [
   { value: 0, label: 'Dom' },
@@ -11,36 +11,57 @@ const DIAS_SEMANA = [
   { value: 6, label: 'Sáb' },
 ];
 
+function formatISODate(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
 interface ValeAjusteModalProps {
   isOpen: boolean;
   funcionarioNome: string;
+  mesAno: string; // 'YYYY-MM', mês em exibição — só afeta a grade de folgas extras
   ajusteAtual?: {
     diasSemanaFolga?: number[];
+    folgasExtras?: string[];
     feriasInicio?: string;
     feriasFim?: string;
   };
   onClose: () => void;
-  onSave: (ajuste: { diasSemanaFolga: number[]; feriasInicio?: string; feriasFim?: string }) => void;
+  onSave: (ajuste: {
+    diasSemanaFolga: number[];
+    folgasExtras: string[];
+    feriasInicio?: string;
+    feriasFim?: string;
+  }) => void;
 }
 
 export const ValeAjusteModal: React.FC<ValeAjusteModalProps> = ({
   isOpen,
   funcionarioNome,
+  mesAno,
   ajusteAtual,
   onClose,
   onSave,
 }) => {
   const [diasFolga, setDiasFolga] = useState<Set<number>>(new Set(ajusteAtual?.diasSemanaFolga || []));
+  const [folgasExtras, setFolgasExtras] = useState<Set<string>>(new Set(ajusteAtual?.folgasExtras || []));
   const [feriasInicio, setFeriasInicio] = useState(ajusteAtual?.feriasInicio || '');
   const [feriasFim, setFeriasFim] = useState(ajusteAtual?.feriasFim || '');
 
   useEffect(() => {
     setDiasFolga(new Set(ajusteAtual?.diasSemanaFolga || []));
+    setFolgasExtras(new Set(ajusteAtual?.folgasExtras || []));
     setFeriasInicio(ajusteAtual?.feriasInicio || '');
     setFeriasFim(ajusteAtual?.feriasFim || '');
   }, [ajusteAtual, isOpen]);
 
   if (!isOpen) return null;
+
+  const [ano, mes] = mesAno.split('-').map(Number);
+  const diasNoMes = new Date(ano, mes, 0).getDate();
+  const dias = Array.from({ length: diasNoMes }, (_, i) => i + 1);
 
   const toggleDia = (dia: number) => {
     const next = new Set(diasFolga);
@@ -52,18 +73,32 @@ export const ValeAjusteModal: React.FC<ValeAjusteModalProps> = ({
     setDiasFolga(next);
   };
 
+  const toggleFolgaExtra = (diaDoMes: number) => {
+    const iso = formatISODate(new Date(ano, mes - 1, diaDoMes));
+    const next = new Set(folgasExtras);
+    if (next.has(iso)) {
+      next.delete(iso);
+    } else {
+      next.add(iso);
+    }
+    setFolgasExtras(next);
+  };
+
   const handleSave = () => {
     onSave({
       diasSemanaFolga: Array.from(diasFolga).sort((a: number, b: number) => a - b),
+      folgasExtras: Array.from(folgasExtras).sort(),
       feriasInicio: feriasInicio || undefined,
       feriasFim: feriasFim || undefined,
     });
     onClose();
   };
 
+  const mesLabel = new Date(ano, mes - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-slate-900 border border-white/10 rounded-2xl shadow-2xl w-full max-w-lg p-6 space-y-5">
+      <div className="bg-slate-900 border border-white/10 rounded-2xl shadow-2xl w-full max-w-lg p-6 space-y-5 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-bold text-white">Ajustes de vale — {funcionarioNome}</h2>
           <button
@@ -96,7 +131,37 @@ export const ValeAjusteModal: React.FC<ValeAjusteModalProps> = ({
             ))}
           </div>
           <p className="text-xs text-slate-400 mt-2">
-            Vale para todos os meses, até ser alterado. Deixe sem marcar para usar o cálculo automático por proporção.
+            Vale para todos os meses, até ser alterado. Use para folgas que nunca mudam (ex: fábrica = sábado e domingo).
+          </p>
+        </div>
+
+        <div>
+          <div className="flex items-center gap-2 text-sm font-semibold text-sky-300 mb-2">
+            <CalendarClock className="w-4 h-4" />
+            <span>Folgas extras de {mesLabel}</span>
+          </div>
+          <div className="grid grid-cols-7 gap-1.5">
+            {dias.map((dia) => {
+              const iso = formatISODate(new Date(ano, mes - 1, dia));
+              const isExtra = folgasExtras.has(iso);
+              return (
+                <button
+                  key={dia}
+                  type="button"
+                  onClick={() => toggleFolgaExtra(dia)}
+                  className={`h-9 rounded-lg text-sm font-medium transition-colors cursor-pointer border ${
+                    isExtra
+                      ? 'bg-sky-500/25 border-sky-400/50 text-sky-200'
+                      : 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10'
+                  }`}
+                >
+                  {dia}
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-xs text-slate-400 mt-2">
+            Só valem neste mês — some com a folga fixa. Use para dias que mudam semana a semana (ex: escala rotativa da loja).
           </p>
         </div>
 

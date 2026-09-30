@@ -12,6 +12,13 @@ function parseISODate(value?: string): Date | null {
   return new Date(y, m - 1, d);
 }
 
+function formatISODate(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
 export interface JanelaAtiva {
   inicio: Date;
   fim: Date;
@@ -50,7 +57,7 @@ function contarDias(
   mesAno: string,
   feriasInicio: string | undefined,
   feriasFim: string | undefined,
-  incluir: (weekday: number) => boolean
+  incluir: (data: Date, weekday: number) => boolean
 ): number {
   const [ano, mes] = mesAno.split('-').map(Number);
   const inicioMes = new Date(ano, mes - 1, 1);
@@ -65,29 +72,34 @@ function contarDias(
   let count = 0;
   for (let d = new Date(inicio); d <= fim; d.setDate(d.getDate() + 1)) {
     if (feriasInicioDate && feriasFimDate && d >= feriasInicioDate && d <= feriasFimDate) continue;
-    if (incluir(d.getDay())) count++;
+    if (incluir(d, d.getDay())) count++;
   }
   return count;
 }
 
 /**
  * Dias de vale no mês: por padrão, todo dia ativo (7/7) gera vale. Dias da semana
- * marcados como folga (diasSemanaFolga) descontam; dias em férias sempre descontam;
- * domingo nunca gera vale quando excluirDomingos (Parkshopping), independente de folga.
+ * marcados como folga fixa (diasSemanaFolga) descontam, assim como datas específicas
+ * marcadas como folga extra (folgasExtras, ex: dia rotativo da escala da loja); dias em
+ * férias sempre descontam; domingo nunca gera vale quando excluirDomingos (Parkshopping),
+ * independente de folga.
  */
 export function calcularDiasVale(params: {
   janela: JanelaAtiva;
   mesAno: string;
   diasSemanaFolga?: number[];
+  folgasExtras?: string[];
   excluirDomingos?: boolean;
   feriasInicio?: string;
   feriasFim?: string;
 }): number {
-  const { janela, mesAno, diasSemanaFolga, excluirDomingos, feriasInicio, feriasFim } = params;
+  const { janela, mesAno, diasSemanaFolga, folgasExtras, excluirDomingos, feriasInicio, feriasFim } = params;
   const folgaSet = new Set(diasSemanaFolga || []);
+  const folgaExtraSet = new Set(folgasExtras || []);
 
-  return contarDias(janela, mesAno, feriasInicio, feriasFim, (weekday) => {
+  return contarDias(janela, mesAno, feriasInicio, feriasFim, (data, weekday) => {
     if (folgaSet.has(weekday)) return false;
+    if (folgaExtraSet.has(formatISODate(data))) return false;
     if (excluirDomingos && weekday === 0) return false;
     return true;
   });
@@ -95,6 +107,7 @@ export function calcularDiasVale(params: {
 
 export interface ValeAjuste {
   diasSemanaFolga?: number[];
+  folgasExtras?: string[];
   feriasInicio?: string;
   feriasFim?: string;
 }
@@ -121,6 +134,7 @@ export function calcularValeFuncionario(
     janela,
     mesAno,
     diasSemanaFolga: ajuste?.diasSemanaFolga,
+    folgasExtras: ajuste?.folgasExtras,
     excluirDomingos: unidade === 'parkshopping',
     feriasInicio: ajuste?.feriasInicio,
     feriasFim: ajuste?.feriasFim,
@@ -130,6 +144,7 @@ export function calcularValeFuncionario(
     janela,
     mesAno,
     diasSemanaFolga: ajuste?.diasSemanaFolga,
+    folgasExtras: ajuste?.folgasExtras,
     excluirDomingos: false,
     feriasInicio: ajuste?.feriasInicio,
     feriasFim: ajuste?.feriasFim,
