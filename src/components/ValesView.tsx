@@ -1,11 +1,13 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Building2, Store, Download, RefreshCw, Settings2 } from 'lucide-react';
+import { Building2, Store, Download, RefreshCw, Settings2, CalendarHeart } from 'lucide-react';
 import { Employee } from '../types';
-import { UnidadeVale, ValeCalculado } from '../types/vale';
+import { UnidadeVale, ValeCalculado, FeriadosArmazenados } from '../types/vale';
 import { calcularValeFuncionario } from '../utils/valeCalculations';
 import { getAjuste, saveAjuste, getAllAjustes } from '../services/valesLocalStore';
 import { syncValesToSheets, fetchValorVAConfig, saveValorVAConfig } from '../services/valesService';
+import { fetchFeriadosFromSheets, saveFeriadosToSheets } from '../services/feriadosService';
 import { ValeAjusteModal } from './ValeAjusteModal';
+import { FeriadosModal } from './FeriadosModal';
 
 interface ValesViewProps {
   employees: Employee[];
@@ -25,12 +27,15 @@ export const ValesView: React.FC<ValesViewProps> = ({ employees, onUpdateEmploye
   const [ajusteVersion, setAjusteVersion] = useState(0);
   const [valorVA, setValorVA] = useState(0);
   const [valorVAInput, setValorVAInput] = useState('0');
+  const [feriados, setFeriados] = useState<FeriadosArmazenados>({ fabrica: [], loja: [] });
+  const [isFeriadosModalOpen, setIsFeriadosModalOpen] = useState(false);
 
   useEffect(() => {
     fetchValorVAConfig().then((v) => {
       setValorVA(v);
       setValorVAInput(String(v));
     });
+    fetchFeriadosFromSheets().then(setFeriados);
   }, []);
 
   const funcionariosDaUnidade = useMemo(() => {
@@ -49,12 +54,20 @@ export const ValesView: React.FC<ValesViewProps> = ({ employees, onUpdateEmploye
   const linhas: ValeCalculado[] = useMemo(() => {
     return funcionariosDaUnidade.map((emp) => {
       const ajuste = getAjuste(emp.id, unidade);
+      // Feriados do setor (só existe divisão Fábrica/Loja na 710/711) entram
+      // como folgas extras automáticas — mesmo mecanismo, fonte diferente.
+      const feriadosDoSetor =
+        unidade === '710_711' && emp.setor ? feriados[emp.setor] : [];
+      const ajusteComFeriados = {
+        ...ajuste,
+        folgasExtras: [...(ajuste?.folgasExtras || []), ...feriadosDoSetor],
+      };
       const resultado = calcularValeFuncionario(
         { admissao: emp.dataAdmissao, desligamento: emp.dataDesligamento, valorVT: emp.valorVT },
         unidade,
         mesAno,
         valorVA,
-        ajuste
+        ajusteComFeriados
       );
       return {
         funcionarioId: emp.id,
@@ -65,7 +78,7 @@ export const ValesView: React.FC<ValesViewProps> = ({ employees, onUpdateEmploye
       };
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [funcionariosDaUnidade, unidade, mesAno, valorVA, ajusteVersion]);
+  }, [funcionariosDaUnidade, unidade, mesAno, valorVA, feriados, ajusteVersion]);
 
   const totalVA = linhas.reduce((sum, l) => sum + l.totalVA, 0);
   const totalVT = linhas.reduce((sum, l) => sum + l.totalVT, 0);
@@ -78,6 +91,15 @@ export const ValesView: React.FC<ValesViewProps> = ({ employees, onUpdateEmploye
       await saveValorVAConfig(valor);
     } catch (err) {
       console.error('Erro ao salvar valor de VA:', err);
+    }
+  };
+
+  const handleSaveFeriados = async (novosFeriados: FeriadosArmazenados) => {
+    setFeriados(novosFeriados);
+    try {
+      await saveFeriadosToSheets(novosFeriados);
+    } catch (err) {
+      console.error('Erro ao salvar feriados:', err);
     }
   };
 
@@ -202,6 +224,15 @@ export const ValesView: React.FC<ValesViewProps> = ({ employees, onUpdateEmploye
             />
           </div>
           <div className="flex items-center gap-3">
+            {unidade === '710_711' && (
+              <button
+                onClick={() => setIsFeriadosModalOpen(true)}
+                className="flex items-center gap-2 px-3.5 py-2.5 text-xs font-semibold text-rose-200 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 rounded-xl backdrop-blur-md transition-all cursor-pointer shadow-xs"
+              >
+                <CalendarHeart className="w-4 h-4 text-rose-300" />
+                <span>Feriados</span>
+              </button>
+            )}
             <button
               onClick={handleExportCSV}
               className="flex items-center gap-2 px-3.5 py-2.5 text-xs font-semibold text-slate-200 bg-white/5 hover:bg-white/10 border border-white/15 rounded-xl backdrop-blur-md hover:border-white/25 transition-all cursor-pointer shadow-xs"
@@ -324,6 +355,13 @@ export const ValesView: React.FC<ValesViewProps> = ({ employees, onUpdateEmploye
           onSave={handleSaveAjuste}
         />
       )}
+
+      <FeriadosModal
+        isOpen={isFeriadosModalOpen}
+        feriados={feriados}
+        onClose={() => setIsFeriadosModalOpen(false)}
+        onSave={handleSaveFeriados}
+      />
     </div>
   );
 };

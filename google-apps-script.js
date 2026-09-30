@@ -58,6 +58,7 @@ const VALE_HEADERS = [
 ];
 
 const CONFIG_SHEET_NAME = 'Config';
+const FERIADOS_SHEET_NAME = 'Feriados';
 
 /**
  * Cria o menu personalizado no Google Sheets ao abrir a planilha
@@ -122,6 +123,9 @@ function doGet(e) {
   }
   if (action === 'get_config') {
     return handleGetConfig();
+  }
+  if (action === 'get_feriados') {
+    return handleGetFeriados();
   }
   return handleGetEmployees();
 }
@@ -206,6 +210,31 @@ function handleGetConfig() {
     }
 
     return ContentService.createTextOutput(JSON.stringify({ valorVA })).setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({ error: err.toString() })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+function handleGetFeriados() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName(FERIADOS_SHEET_NAME);
+    if (!sheet) {
+      return ContentService.createTextOutput(JSON.stringify({ fabrica: [], loja: [] })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    const data = sheet.getDataRange().getValues();
+    const fabrica = [];
+    const loja = [];
+    for (let r = 1; r < data.length; r++) {
+      const data_ = cellToString(data[r][0]);
+      const grupo = cellToString(data[r][1]);
+      if (!data_) continue;
+      if (grupo === 'fabrica') fabrica.push(data_);
+      else if (grupo === 'loja') loja.push(data_);
+    }
+
+    return ContentService.createTextOutput(JSON.stringify({ fabrica, loja })).setMimeType(ContentService.MimeType.JSON);
   } catch (err) {
     return ContentService.createTextOutput(JSON.stringify({ error: err.toString() })).setMimeType(ContentService.MimeType.JSON);
   }
@@ -327,6 +356,10 @@ function doPost(e) {
 
     if (body.action === 'save_config') {
       return handleSaveConfig(body);
+    }
+
+    if (body.action === 'save_feriados') {
+      return handleSaveFeriados(body);
     }
 
     if (body.action === 'sync_all' && Array.isArray(body.employees)) {
@@ -479,6 +512,35 @@ function handleSaveConfig(body) {
     sheet.appendRow(['valorVA', valorVA]);
 
     return ContentService.createTextOutput(JSON.stringify({ status: 'success', valorVA })).setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({ status: 'error', error: err.toString() })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+function handleSaveFeriados(body) {
+  try {
+    const fabrica = Array.isArray(body.fabrica) ? body.fabrica : [];
+    const loja = Array.isArray(body.loja) ? body.loja : [];
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let sheet = ss.getSheetByName(FERIADOS_SHEET_NAME);
+    if (!sheet) {
+      sheet = ss.insertSheet(FERIADOS_SHEET_NAME);
+    }
+
+    sheet.clearContents();
+    sheet.appendRow(['Data', 'Grupo']);
+    formatHeaderRow(sheet);
+
+    const rows = fabrica
+      .map((d) => [d, 'fabrica'])
+      .concat(loja.map((d) => [d, 'loja']));
+
+    if (rows.length > 0) {
+      sheet.getRange(2, 1, rows.length, 1).setNumberFormat('@');
+      sheet.getRange(2, 1, rows.length, 2).setValues(rows);
+    }
+
+    return ContentService.createTextOutput(JSON.stringify({ status: 'success', fabrica, loja })).setMimeType(ContentService.MimeType.JSON);
   } catch (err) {
     return ContentService.createTextOutput(JSON.stringify({ status: 'error', error: err.toString() })).setMimeType(ContentService.MimeType.JSON);
   }

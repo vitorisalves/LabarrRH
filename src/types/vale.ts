@@ -9,6 +9,13 @@ export interface AjusteArmazenado {
   feriasFim?: string; // 'YYYY-MM-DD', persistente entre meses
 }
 
+export type GrupoFeriado = 'fabrica' | 'loja';
+
+export interface FeriadosArmazenados {
+  fabrica: string[]; // datas 'YYYY-MM-DD'
+  loja: string[]; // datas 'YYYY-MM-DD'
+}
+
 export interface ValeCalculado {
   funcionarioId: string;
   nome: string;
